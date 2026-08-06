@@ -36,7 +36,6 @@ import eu.europa.ec.corelogic.extension.getIssuerName
 import eu.europa.ec.corelogic.extension.getName
 import eu.europa.ec.corelogic.model.DocumentIdentifier
 import eu.europa.ec.eudi.openid4vci.TxCodeInputMode
-import eu.europa.ec.eudi.openid4vci.ProofTypeMeta
 import eu.europa.ec.eudi.wallet.document.DocumentId
 import eu.europa.ec.eudi.wallet.document.format.SdJwtVcFormat
 import eu.europa.ec.eudi.wallet.issue.openid4vci.Offer
@@ -153,7 +152,6 @@ class DocumentOfferInteractorImpl(
 
                     is ResolveDocumentOfferPartialState.Success -> {
 
-                        response.offer.preferJwtProofs()
                         credentialOffers[offerUri] = response.offer
 
                         val offerHasNoDocuments = response.offer.offeredDocuments.isEmpty()
@@ -386,32 +384,5 @@ class DocumentOfferInteractorImpl(
                 ).orEmpty()
             )
         )
-    }
-}
-// The issuer advertises the attestation proof type only because the resolution validator insists
-// both types appear together, and wallet-core always prefers attestation when a key-attestation
-// provider exists - a proof the Verana cast cannot verify. Dropping it from the resolved offer
-// steers wallet-core to the jwt-proof-with-key-attestation path, which the cast accepts. The
-// backing set is immutable, hence the reflective write.
-private fun Offer.preferJwtProofs() {
-    offeredDocuments.forEach { offeredDocument ->
-        val proofTypes = offeredDocument.configuration.proofTypesSupported
-        val jwtOnly = proofTypes.values.filterNot { it is ProofTypeMeta.Attestation }.toSet()
-        if (jwtOnly.isNotEmpty() && jwtOnly.size != proofTypes.values.size) {
-            runCatching {
-                val configuration = offeredDocument.configuration
-                val field = configuration.javaClass.getDeclaredField("proofTypesSupported")
-                field.isAccessible = true
-                // ProofTypesSupported is a @JvmInline value class, so the runtime field holds
-                // the raw Set<ProofTypeMeta>.
-                field.set(configuration, jwtOnly)
-            }.onFailure {
-                android.util.Log.w("VeranaTrust", "proof-type strip failed", it)
-            }
-            android.util.Log.w(
-                "VeranaTrust",
-                "proof types after strip: ${offeredDocument.configuration.proofTypesSupported.values}"
-            )
-        }
     }
 }

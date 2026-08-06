@@ -113,10 +113,12 @@ internal class WalletCoreConfigImpl : WalletCoreConfig {
                     }
 
                     // The Verana trust layer is the enforcement in this fork: issuers are gated on
-                    // registry resolution at the offer screen, not on the EU trusted lists.
+                    // registry resolution at the offer screen, not on the EU trusted lists. Signed
+                    // metadata stays preferred rather than ignored, because asking for it is what
+                    // makes openid4vci-kt announce itself to the agent.
                     configureIssuerTrust {
                         policy { default(TrustPolicy.Action.INFORM) }
-                        ignoreSignedMetadata()
+                        preferSignedMetadata()
                     }
 
                     configureDocumentStatusResolver {

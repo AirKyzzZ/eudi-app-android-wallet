@@ -17,8 +17,10 @@
 package eu.europa.ec.uilogic.component
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,10 +35,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
+import eu.europa.ec.resourceslogic.R
 import kotlinx.serialization.Serializable
 
 // Wording and states follow the versioned card at playground/public/trust-card/index.html.
@@ -219,7 +224,10 @@ private fun IdentityBlock(
     registryId: String? = null,
     subLine: String? = null,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
         CheckMark(verified)
         Column(
             modifier = Modifier.weight(1f),
@@ -351,7 +359,7 @@ private fun ConditionRow(label: String, present: Boolean) {
 private fun CheckMark(verified: Boolean) {
     Column(
         modifier = Modifier
-            .padding(top = 14.dp)
+            .padding(top = 18.dp)
             .size(16.dp)
             .clip(CircleShape)
             .background(if (verified) Green else Grey.copy(alpha = 0.35f)),
@@ -367,31 +375,28 @@ private fun AvatarTile(name: String) {
         .joinToString("")
         .ifEmpty { "?" }
 
-    Text(
-        text = initials,
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-        color = Color.White,
+    Box(
         modifier = Modifier
-            .size(24.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .background(Verana)
-            .padding(top = 5.dp),
-    )
+            .size(26.dp)
+            .clip(RoundedCornerShape(7.dp))
+            .background(Verana),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = initials,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+        )
+    }
 }
 
 @Composable
-private fun VeranaMark() {
-    Text(
-        text = "V",
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-        color = Color.White,
-        modifier = Modifier
-            .size(18.dp)
-            .clip(RoundedCornerShape(5.dp))
-            .background(Verana)
-            .padding(top = 2.dp),
+private fun VeranaMark(size: Dp = 18.dp) {
+    Image(
+        painter = painterResource(id = R.drawable.ic_verana_mark),
+        contentDescription = null,
+        modifier = Modifier.size(size),
     )
 }
 
@@ -405,7 +410,7 @@ private fun VerdictPill(verdict: VeranaVerdictUi) {
             .border(1.dp, verdict.color, RoundedCornerShape(999.dp))
             .padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
-        VeranaMark()
+        VeranaMark(size = 16.dp)
         Text(
             text = verdict.pillLabel,
             style = MaterialTheme.typography.labelMedium,

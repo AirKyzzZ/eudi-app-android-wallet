@@ -63,6 +63,7 @@ class PresentationRequestViewModel(
 ) : RequestViewModel() {
 
     private var veranaTrustJob: Job? = null
+    private var veranaCredentialName: String? = null
 
     override fun getHeaderConfig(): ContentHeaderConfig {
         return ContentHeaderConfig(
@@ -168,7 +169,7 @@ class PresentationRequestViewModel(
                                 isLoading = false,
                                 error = null,
                                 headerConfig = updatedHeaderConfig.copy(
-                                    veranaTrustCard = VeranaTrustState.resolving.toCardUi(),
+                                    veranaTrustCard = VeranaTrustState.resolving.toCardUi(asksFor = true, credentialName = veranaCredentialName),
                                 ),
                                 requestDataUi = requestData,
                                 claimsAreSelectable = response.claimsAreSelectable,
@@ -176,6 +177,9 @@ class PresentationRequestViewModel(
                             )
                         }
 
+                        veranaCredentialName = requestData.selectedDocuments
+                            .firstOrNull()
+                            ?.let { it.domainPayload.docName }
                         collectVeranaTrust(
                             certificates = response.veranaCertificates,
                             vct = response.veranaVct,
@@ -212,7 +216,7 @@ class PresentationRequestViewModel(
                                 isLoading = false,
                                 error = null,
                                 headerConfig = updatedHeaderConfig.copy(
-                                    veranaTrustCard = VeranaTrustState.resolving.toCardUi(),
+                                    veranaTrustCard = VeranaTrustState.resolving.toCardUi(asksFor = true, credentialName = veranaCredentialName),
                                 ),
                                 requestDataUi = RequestDataUi.NoData,
                                 veranaTrust = VeranaTrustState.resolving,
@@ -252,7 +256,7 @@ class PresentationRequestViewModel(
                     copy(
                         veranaTrust = trust,
                         headerConfig = headerConfig.copy(
-                            veranaTrustCard = trust.toCardUi(),
+                            veranaTrustCard = trust.toCardUi(asksFor = true, credentialName = veranaCredentialName),
                             // The wallet's own tick means "reader auth chained to something"; left
                             // alone it puts a green check beside a service the registry refuses.
                             relyingPartyData = headerConfig.relyingPartyData?.copy(

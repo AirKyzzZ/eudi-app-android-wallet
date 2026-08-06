@@ -214,22 +214,30 @@ private fun Content(
             .fillMaxSize()
             .padding(paddingValues)
     ) {
-        ContentHeader(
-            modifier = Modifier.fillMaxWidth(),
-            config = state.headerConfig,
-            descriptionTestTag = TestTag.DocumentOfferScreen.CONTENT_HEADER_DESCRIPTION,
-        )
-
         if (state.noDocument) {
+            ContentHeader(
+                modifier = Modifier.fillMaxWidth(),
+                config = state.headerConfig,
+                descriptionTestTag = TestTag.DocumentOfferScreen.CONTENT_HEADER_DESCRIPTION,
+            )
             ErrorInfo(
                 modifier = Modifier.fillMaxSize(),
                 informativeText = stringResource(id = R.string.issuance_document_offer_error_no_document)
             )
         } else {
-            // Screen Main Content
+            // The header scrolls with the list: the trust card is taller than the viewport on a
+            // long service description, and a Column would silently squeeze its last blocks to
+            // nothing rather than let the reader reach them.
             MainContent(
                 modifier = Modifier.fillMaxSize(),
                 documents = state.documents,
+                header = {
+                    ContentHeader(
+                        modifier = Modifier.fillMaxWidth(),
+                        config = state.headerConfig,
+                        descriptionTestTag = TestTag.DocumentOfferScreen.CONTENT_HEADER_DESCRIPTION,
+                    )
+                },
             )
         }
     }
@@ -262,12 +270,14 @@ private fun Content(
 private fun MainContent(
     modifier: Modifier = Modifier,
     documents: List<ListItemDataUi>,
+    header: @Composable () -> Unit = {},
 ) {
     LazyColumn(
         modifier = modifier,
         contentPadding = PaddingValues(vertical = SPACING_SMALL.dp),
         verticalArrangement = Arrangement.spacedBy(SPACING_MEDIUM.dp),
     ) {
+        item { header() }
         items(documents.size) { index ->
             WrapListItem(
                 modifier = Modifier.fillMaxWidth(),

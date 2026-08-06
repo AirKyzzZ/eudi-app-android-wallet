@@ -21,7 +21,10 @@ import eu.europa.ec.corelogic.controller.VeranaVerdict
 import eu.europa.ec.uilogic.component.VeranaTrustCardUi
 import eu.europa.ec.uilogic.component.VeranaVerdictUi
 
-fun VeranaTrustState.toCardUi(): VeranaTrustCardUi = VeranaTrustCardUi(
+fun VeranaTrustState.toCardUi(
+    asksFor: Boolean = false,
+    credentialName: String? = null,
+): VeranaTrustCardUi = VeranaTrustCardUi(
     verdict = when (verdict) {
         VeranaVerdict.RESOLVING -> VeranaVerdictUi.RESOLVING
         VeranaVerdict.TRUSTED -> VeranaVerdictUi.TRUSTED
@@ -37,5 +40,15 @@ fun VeranaTrustState.toCardUi(): VeranaTrustCardUi = VeranaTrustCardUi(
     operatorCredentialPresented = operatorCredentialPresented,
     serviceSelfIssued = serviceSelfIssued,
     operatorSelfIssued = operatorSelfIssued,
+    serviceDescription = serviceDescription,
+    operatorAddress = operatorAddress,
+    operatorCountryCode = operatorCountryCode,
+    operatorRegistryId = operatorRegistryId,
+    minimumAgeRequired = minimumAgeRequired,
+    hasTerms = hasTerms,
+    hasPrivacyPolicy = hasPrivacyPolicy,
+    credentialName = credentialName,
+    asksFor = asksFor,
+    accreditationGranted = accreditation?.granted,
     accreditationReason = accreditation?.takeIf { !it.granted }?.reason,
 )

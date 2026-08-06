@@ -139,6 +139,7 @@ class DocumentOfferViewModel(
 ) : MviViewModel<Event, State, Effect>() {
 
     private var veranaTrustJob: Job? = null
+    private var veranaCredentialName: String? = null
 
     private var _documentOfferInteractor: DocumentOfferInteractor? = documentOfferInteractor
 
@@ -324,11 +325,12 @@ class DocumentOfferViewModel(
                                         issuerName = response.issuerName,
                                         issuerLogo = response.issuerLogo,
                                     ),
-                                    veranaTrustCard = VeranaTrustState.resolving.toCardUi(),
+                                    veranaTrustCard = VeranaTrustState.resolving.toCardUi(credentialName = veranaCredentialName),
                                 ),
                             )
                         }
 
+                        veranaCredentialName = response.documents.firstOrNull()?.title
                         collectVeranaTrust(
                             issuerUrl = response.veranaIssuerUrl,
                             vct = response.veranaVct,
@@ -366,7 +368,9 @@ class DocumentOfferViewModel(
             setState {
                 copy(
                     veranaTrust = unverified,
-                    headerConfig = headerConfig.copy(veranaTrustCard = unverified.toCardUi()),
+                    headerConfig = headerConfig.copy(
+                        veranaTrustCard = unverified.toCardUi(credentialName = veranaCredentialName),
+                    ),
                 )
             }
             return
@@ -376,7 +380,9 @@ class DocumentOfferViewModel(
                 setState {
                     copy(
                         veranaTrust = trust,
-                        headerConfig = headerConfig.copy(veranaTrustCard = trust.toCardUi()),
+                        headerConfig = headerConfig.copy(
+                            veranaTrustCard = trust.toCardUi(credentialName = veranaCredentialName),
+                        ),
                     )
                 }
             }

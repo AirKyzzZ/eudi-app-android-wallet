@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.serialization.Serializable
@@ -55,6 +56,16 @@ data class VeranaTrustCardUi(
     val operatorCredentialPresented: Boolean = false,
     val serviceSelfIssued: Boolean = false,
     val operatorSelfIssued: Boolean = false,
+    val serviceDescription: String? = null,
+    val operatorAddress: String? = null,
+    val operatorCountryCode: String? = null,
+    val operatorRegistryId: String? = null,
+    val minimumAgeRequired: Int? = null,
+    val hasTerms: Boolean = false,
+    val hasPrivacyPolicy: Boolean = false,
+    val credentialName: String? = null,
+    val asksFor: Boolean = false,
+    val accreditationGranted: Boolean? = null,
     val accreditationReason: String? = null,
 )
 
@@ -64,6 +75,7 @@ private val Green = Color(0xFF16A34A)
 private val Amber = Color(0xFFD97706)
 private val Red = Color(0xFFDC2626)
 private val Grey = Color(0xFF6B7280)
+private val Verana = Color(0xFF7C3AED)
 
 private val VeranaVerdictUi.color: Color
     get() = when (this) {
@@ -94,8 +106,8 @@ fun VeranaTrustCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .border(1.dp, outline, RoundedCornerShape(12.dp))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         data.did?.let { did ->
             Row(
@@ -121,6 +133,7 @@ fun VeranaTrustCard(
                     )
                 }
                 Pill(text = "TESTNET", color = Grey)
+                VeranaMark()
             }
         }
 
@@ -130,6 +143,7 @@ fun VeranaTrustCard(
                 ?: if (data.serviceCredentialPresented) "Service claims not verified"
                 else "No ECS-Service credential presented",
             verified = data.serviceName != null,
+            detail = data.serviceDescription,
             subLine = SELF_ISSUED.takeIf {
                 data.serviceName == null && data.serviceCredentialPresented && data.serviceSelfIssued
             },
@@ -140,6 +154,9 @@ fun VeranaTrustCard(
                 ?: if (data.operatorCredentialPresented) "Operator claims not verified"
                 else "No ECS-Organization credential presented",
             verified = data.operatorName != null,
+            detail = data.operatorAddress,
+            countryCode = data.operatorCountryCode,
+            registryId = data.operatorRegistryId,
             subLine = when {
                 data.operatorName == null && !data.operatorCredentialPresented ->
                     "Nothing verifies who operates this service"
@@ -150,20 +167,38 @@ fun VeranaTrustCard(
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Pill(text = data.verdict.pillLabel, color = data.verdict.color)
+            VerdictPill(data.verdict)
             Text(
                 text = data.sentence,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            data.accreditationReason?.let { reason ->
-                Text(
-                    text = reason,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Amber,
-                )
-            }
+        }
+
+        data.credentialName?.let { credential ->
+            OffersBlock(
+                label = if (data.asksFor) "ASKS YOU FOR" else "OFFERS YOU",
+                credentialName = credential,
+                granted = data.accreditationGranted,
+                reason = data.accreditationReason,
+            )
+        }
+
+        if (data.serviceName != null) {
+            ConditionsBlock(
+                minimumAgeRequired = data.minimumAgeRequired,
+                hasTerms = data.hasTerms,
+                hasPrivacyPolicy = data.hasPrivacyPolicy,
+            )
+        }
+
+        data.did?.let {
+            Text(
+                text = "Open this DID in Verana ↗",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Verana,
+            )
         }
 
         Text(
@@ -179,27 +214,204 @@ private fun IdentityBlock(
     label: String,
     value: String,
     verified: Boolean,
+    detail: String? = null,
+    countryCode: String? = null,
+    registryId: String? = null,
     subLine: String? = null,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        CheckMark(verified)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (verified) AvatarTile(value)
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (verified) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (verified) MaterialTheme.colorScheme.onSurface else Grey,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                countryCode?.let { Pill(text = it, color = Red) }
+            }
+            detail?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            registryId?.let { Pill(text = "REG $it", color = Grey) }
+            subLine?.let {
+                Text(text = it, style = MaterialTheme.typography.labelSmall, color = Grey)
+            }
+        }
+    }
+}
+
+@Composable
+private fun OffersBlock(
+    label: String,
+    credentialName: String,
+    granted: Boolean?,
+    reason: String?,
+) {
+    val tone = if (granted == false) Amber else Green
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .border(1.dp, tone.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = value,
+            text = credentialName,
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (verified) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (verified) MaterialTheme.colorScheme.onSurface else Grey,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
         )
-        subLine?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.labelSmall,
-                color = Grey,
-            )
+        reason?.let {
+            Text(text = it, style = MaterialTheme.typography.bodySmall, color = tone)
         }
+    }
+}
+
+@Composable
+private fun ConditionsBlock(
+    minimumAgeRequired: Int?,
+    hasTerms: Boolean,
+    hasPrivacyPolicy: Boolean,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Text(
+            text = "CONDITIONS OF CONNECTING",
+            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = buildString {
+                append(minimumAgeRequired?.takeIf { it > 0 }?.let { "Minimum age $it" } ?: "No age restriction")
+                append(" · Terms ")
+                append(if (hasTerms) "published" else "not published")
+                append(" · Privacy ")
+                append(if (hasPrivacyPolicy) "published" else "not published")
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+@Composable
+private fun ConditionRow(label: String, present: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            color = if (present) Verana else Grey,
+        )
+        Text(
+            text = if (present) "published" else "not published",
+            style = MaterialTheme.typography.labelSmall,
+            color = if (present) Green else Grey,
+        )
+    }
+}
+
+@Composable
+private fun CheckMark(verified: Boolean) {
+    Column(
+        modifier = Modifier
+            .padding(top = 14.dp)
+            .size(16.dp)
+            .clip(CircleShape)
+            .background(if (verified) Green else Grey.copy(alpha = 0.35f)),
+    ) {}
+}
+
+@Composable
+private fun AvatarTile(name: String) {
+    val initials = name.split(' ')
+        .filter { it.isNotBlank() && it.first().isLetter() }
+        .take(2)
+        .map { it.first().uppercaseChar() }
+        .joinToString("")
+        .ifEmpty { "?" }
+
+    Text(
+        text = initials,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = Color.White,
+        modifier = Modifier
+            .size(24.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(Verana)
+            .padding(top = 5.dp),
+    )
+}
+
+@Composable
+private fun VeranaMark() {
+    Text(
+        text = "V",
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = Color.White,
+        modifier = Modifier
+            .size(18.dp)
+            .clip(RoundedCornerShape(5.dp))
+            .background(Verana)
+            .padding(top = 2.dp),
+    )
+}
+
+@Composable
+private fun VerdictPill(verdict: VeranaVerdictUi) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .border(1.dp, verdict.color, RoundedCornerShape(999.dp))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        VeranaMark()
+        Text(
+            text = verdict.pillLabel,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = verdict.color,
+        )
     }
 }
 

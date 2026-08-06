@@ -46,6 +46,14 @@ data class VeranaTrustState(
     val operatorCredentialPresented: Boolean = false,
     val serviceSelfIssued: Boolean = false,
     val operatorSelfIssued: Boolean = false,
+    val serviceDescription: String? = null,
+    val operatorAddress: String? = null,
+    val operatorCountryCode: String? = null,
+    val operatorRegistryId: String? = null,
+    val minimumAgeRequired: Int? = null,
+    val hasTerms: Boolean = false,
+    val hasPrivacyPolicy: Boolean = false,
+    val credentialName: String? = null,
     val accreditation: VeranaAccreditation? = null,
     val production: Boolean = true,
 ) {
@@ -183,6 +191,16 @@ class VeranaTrustControllerImpl(
             operatorCredentialPresented = organization != null,
             serviceSelfIssued = service?.issuedBy == did,
             operatorSelfIssued = organization?.issuedBy == did,
+            serviceDescription = service?.takeIf { serviceValid }?.claimText("description"),
+            operatorAddress = organization?.takeIf { organizationValid }?.claimText("address"),
+            operatorCountryCode = organization
+                ?.takeIf { organizationValid }
+                ?.claimText("countryCode")
+                ?.uppercase(),
+            operatorRegistryId = organization?.takeIf { organizationValid }?.claimText("registryId"),
+            minimumAgeRequired = service?.takeIf { serviceValid }?.claimInt("minimumAgeRequired"),
+            hasTerms = service?.takeIf { serviceValid }?.hasAsset("termsAndConditions") == true,
+            hasPrivacyPolicy = service?.takeIf { serviceValid }?.hasAsset("privacyPolicy") == true,
             accreditation = accreditation,
             production = resolution.production,
         )
@@ -295,8 +313,18 @@ class VeranaTrustControllerImpl(
     private fun List<VeranaTrustCredential>?.findEcs(vararg types: String): VeranaTrustCredential? =
         this?.firstOrNull { it.ecsType in types }
 
-    private fun VeranaTrustCredential.claimName(): String? =
-        (claims?.get("name") as? JsonPrimitive)?.jsonPrimitive?.content?.takeIf { it.isNotEmpty() }
+    private fun VeranaTrustCredential.claimName(): String? = claimText("name")
+
+    private fun VeranaTrustCredential.claimText(key: String): String? =
+        (claims?.get(key) as? JsonPrimitive)?.content?.takeIf { it.isNotEmpty() }
+
+    private fun VeranaTrustCredential.claimInt(key: String): Int? =
+        (claims?.get(key) as? JsonPrimitive)?.content?.toIntOrNull()
+
+    // The deployed testnet still issues the v3 credential shape ('<thing>' + '<thing>Hash')
+    // alongside the published v4 one ('<thing>Uri'), so both have to read.
+    private fun VeranaTrustCredential.hasAsset(base: String): Boolean =
+        claimText("${base}Uri") != null || claimText(base) != null
 
     private fun String.toInstantOrNull(): Instant? = runCatching { Instant.parse(this) }.getOrNull()
 }

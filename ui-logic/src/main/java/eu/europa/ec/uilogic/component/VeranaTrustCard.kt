@@ -96,7 +96,7 @@ private val VeranaVerdictUi.pillLabel: String
         VeranaVerdictUi.PARTIAL -> "PARTIAL"
         VeranaVerdictUi.UNTRUSTED -> "UNTRUSTED"
         VeranaVerdictUi.UNVERIFIED -> "COULD NOT VERIFY"
-        VeranaVerdictUi.RESOLVING -> "RESOLVING"
+        VeranaVerdictUi.RESOLVING -> "CHECKING…"
     }
 
 @Composable

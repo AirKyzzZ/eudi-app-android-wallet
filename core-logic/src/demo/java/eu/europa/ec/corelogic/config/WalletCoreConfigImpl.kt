@@ -107,9 +107,10 @@ internal class WalletCoreConfigImpl : WalletCoreConfig {
                         relaxPkixRevocation()
                     }
 
+                    // The Verana trust layer is the enforcement in this fork: issuers are gated on
+                    // registry resolution at the offer screen, not on the EU trusted lists.
                     configureIssuerTrust {
-                        policy { default(TrustPolicy.Action.ENFORCE) }
-                        requireSignedMetadata()
+                        policy { default(TrustPolicy.Action.INFORM) }
                     }
 
                     configureDocumentStatusResolver {
@@ -121,7 +122,7 @@ internal class WalletCoreConfigImpl : WalletCoreConfig {
                     }
 
                     configureReaderTrustStore {
-                        readerAuthPolicy(ReaderAuthPolicy.EnforceIfPresent)
+                        readerAuthPolicy(ReaderAuthPolicy.DoNotEnforce)
                     }
                 }
             }

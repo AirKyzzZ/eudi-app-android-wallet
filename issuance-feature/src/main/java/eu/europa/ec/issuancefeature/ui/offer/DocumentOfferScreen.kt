@@ -114,7 +114,8 @@ fun DocumentOfferScreen(
                     type = StickyBottomType.OneButton(
                         config = ButtonConfig(
                             type = ButtonType.PRIMARY,
-                            enabled = !state.isLoading && !state.noDocument,
+                            enabled = !state.isLoading && !state.noDocument &&
+                                    state.veranaTrust?.allowAction != false,
                             onClick = { viewModel.setEvent(Event.StickyButtonPressed(context)) }
                         )
                     )

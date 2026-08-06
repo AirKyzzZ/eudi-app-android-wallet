@@ -61,6 +61,7 @@ import org.multipaz.presentment.CredentialPresentmentSelection
 import org.multipaz.presentment.CredentialPresentmentSetOptionMemberMatch
 import org.multipaz.securearea.KeyUnlockData
 import java.net.URI
+import java.security.cert.X509Certificate
 
 sealed class PresentationControllerConfig(val initiatorRoute: String) {
     data class OpenId4VP(val uri: String, val initiator: String) :
@@ -82,6 +83,7 @@ sealed class TransferEventPartialState {
         val combinationsDomain: List<PresentationCombinationDomain>,
         val verifierName: String?,
         val verifierIsTrusted: Boolean,
+        val veranaCertificates: List<X509Certificate> = emptyList(),
     ) : TransferEventPartialState()
 
     data object VerifierNotTrusted : TransferEventPartialState()
@@ -228,6 +230,7 @@ class WalletCorePresentationControllerImpl(
     private val prefKeys: PrefKeys,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
     walletCore: EudiWallet? = null,
+    private val veranaTrustController: VeranaTrustController? = null,
 ) : WalletCorePresentationController {
 
     private var _eudiWallet: EudiWallet? = walletCore
@@ -426,6 +429,16 @@ class WalletCorePresentationControllerImpl(
     }
 
     override suspend fun sendRequestedDocuments(): SendRequestedDocumentsPartialState {
+        // The Verana verdict gates the wire send, not just the consent screen: a remembered or
+        // re-entered flow that skips the dialog must still be unable to disclose. OpenID4VP only;
+        // proximity and DC-API carry no verdict.
+        if (runCatching { requireConfig() }.getOrNull() is PresentationControllerConfig.OpenId4VP &&
+            veranaTrustController?.latestVerifierState?.value?.allowAction == false
+        ) {
+            return SendRequestedDocumentsPartialState.Failure(
+                error = "The Verana public registry does not vouch for this verifier."
+            )
+        }
         val selectionsDomain = disclosedDocuments
             ?: return SendRequestedDocumentsPartialState.Failure(error = genericErrorMessage)
         val processed = processedRequest
@@ -599,10 +612,20 @@ class WalletCorePresentationControllerImpl(
 
             matchByKey = success.buildMatchByKey()
 
+            val veranaCertificates = runCatching {
+                val factory = java.security.cert.CertificateFactory.getInstance("X.509")
+                success.requester.certChain?.certificates?.map { cert ->
+                    factory.generateCertificate(
+                        cert.encoded.toByteArray().inputStream()
+                    ) as X509Certificate
+                }
+            }.getOrNull().orEmpty()
+
             TransferEventPartialState.RequestReceived(
                 combinationsDomain = combinationsDomain,
                 verifierName = verifierName,
-                verifierIsTrusted = isTrusted
+                verifierIsTrusted = isTrusted,
+                veranaCertificates = veranaCertificates,
             )
         }.getOrElse { throwable ->
             // OpenID4VP over the DC-API delivers the untrusted-verifier rejection as a

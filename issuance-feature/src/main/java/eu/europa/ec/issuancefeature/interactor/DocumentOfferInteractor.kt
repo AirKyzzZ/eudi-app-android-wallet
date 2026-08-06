@@ -28,6 +28,7 @@ import eu.europa.ec.commonfeature.config.SuccessUIConfig
 import eu.europa.ec.commonfeature.interactor.DeviceAuthenticationInteractor
 import eu.europa.ec.corelogic.controller.IssueDocumentsPartialState
 import eu.europa.ec.corelogic.controller.ResolveDocumentOfferPartialState
+import eu.europa.ec.corelogic.controller.VeranaTrustController
 import eu.europa.ec.corelogic.controller.WalletCoreDocumentsController
 import eu.europa.ec.corelogic.extension.documentIdentifier
 import eu.europa.ec.corelogic.extension.getIssuerLogo
@@ -36,6 +37,7 @@ import eu.europa.ec.corelogic.extension.getName
 import eu.europa.ec.corelogic.model.DocumentIdentifier
 import eu.europa.ec.eudi.openid4vci.TxCodeInputMode
 import eu.europa.ec.eudi.wallet.document.DocumentId
+import eu.europa.ec.eudi.wallet.document.format.SdJwtVcFormat
 import eu.europa.ec.eudi.wallet.issue.openid4vci.Offer
 import eu.europa.ec.issuancefeature.ui.offer.model.DocumentOfferUi
 import eu.europa.ec.resourceslogic.R
@@ -58,7 +60,9 @@ sealed class ResolveDocumentOfferInteractorPartialState {
         val documents: List<DocumentOfferUi>,
         val issuerName: String,
         val issuerLogo: URI?,
-        val txCodeLength: Int?
+        val txCodeLength: Int?,
+        val veranaIssuerUrl: String? = null,
+        val veranaVct: String? = null
     ) : ResolveDocumentOfferInteractorPartialState()
 
     data class NoDocument(
@@ -122,7 +126,8 @@ class DocumentOfferInteractorImpl(
     private val deviceAuthenticationInteractor: DeviceAuthenticationInteractor,
     private val resourceProvider: ResourceProvider,
     private val uiSerializer: UiSerializer,
-    private val configLogic: ConfigLogic
+    private val configLogic: ConfigLogic,
+    private val veranaTrustController: VeranaTrustController
 ) : DocumentOfferInteractor {
 
     private val genericErrorMsg
@@ -195,7 +200,12 @@ class DocumentOfferInteractorImpl(
                                     },
                                     issuerName = response.offer.getIssuerName(userLocale),
                                     issuerLogo = response.offer.getIssuerLogo(userLocale),
-                                    txCodeLength = response.offer.txCodeSpec?.length
+                                    txCodeLength = response.offer.txCodeSpec?.length,
+                                    veranaIssuerUrl = response.offer.issuerMetadata
+                                        .credentialIssuerIdentifier.value.value.toString(),
+                                    veranaVct = response.offer.offeredDocuments.firstNotNullOfOrNull {
+                                        (it.documentFormat as? SdJwtVcFormat)?.vct
+                                    }
                                 )
                             } else {
                                 ResolveDocumentOfferInteractorPartialState.Failure(
@@ -223,6 +233,12 @@ class DocumentOfferInteractorImpl(
         txCode: SecurePin?
     ): Flow<IssueDocumentsInteractorPartialState> =
         flow {
+            // The verdict gates the action, not just the dialog: a disabled button is not a
+            // security boundary when another entry point can reach this flow.
+            if (veranaTrustController.latestIssuerState.value?.allowAction == false) {
+                emit(IssueDocumentsInteractorPartialState.IssuerNotTrusted)
+                return@flow
+            }
             credentialOffers[offerUri]?.let { offer ->
                 walletCoreDocumentsController.issueDocumentsByOffer(
                     offer = offer,

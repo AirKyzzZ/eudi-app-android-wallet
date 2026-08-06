@@ -27,6 +27,9 @@ import eu.europa.ec.commonfeature.ui.request.RequestBottomSheetContent
 import eu.europa.ec.commonfeature.ui.request.RequestViewModel
 import eu.europa.ec.commonfeature.ui.request.model.RequestDataUi
 import eu.europa.ec.commonfeature.ui.request.model.RequestDocumentItemUi
+import eu.europa.ec.commonfeature.util.toCardUi
+import eu.europa.ec.corelogic.controller.VeranaTrustController
+import eu.europa.ec.corelogic.controller.VeranaTrustState
 import eu.europa.ec.corelogic.di.getOrNullKoinScope
 import eu.europa.ec.presentationfeature.interactor.PresentationRequestInteractor
 import eu.europa.ec.presentationfeature.interactor.PresentationRequestInteractorPartialState
@@ -43,6 +46,8 @@ import eu.europa.ec.uilogic.navigation.helper.IntentAction
 import eu.europa.ec.uilogic.navigation.helper.generateComposableArguments
 import eu.europa.ec.uilogic.navigation.helper.generateComposableNavigationLink
 import eu.europa.ec.uilogic.serializer.UiSerializer
+import java.security.cert.X509Certificate
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.koin.core.annotation.InjectedParam
 import org.koin.core.annotation.KoinViewModel
@@ -52,8 +57,11 @@ class PresentationRequestViewModel(
     private val interactor: PresentationRequestInteractor,
     private val resourceProvider: ResourceProvider,
     private val uiSerializer: UiSerializer,
+    private val veranaTrustController: VeranaTrustController,
     @InjectedParam private val requestUriConfigRaw: String
 ) : RequestViewModel() {
+
+    private var veranaTrustJob: Job? = null
 
     override fun getHeaderConfig(): ContentHeaderConfig {
         return ContentHeaderConfig(
@@ -158,11 +166,19 @@ class PresentationRequestViewModel(
                             copy(
                                 isLoading = false,
                                 error = null,
-                                headerConfig = updatedHeaderConfig,
+                                headerConfig = updatedHeaderConfig.copy(
+                                    veranaTrustCard = VeranaTrustState.resolving.toCardUi(),
+                                ),
                                 requestDataUi = requestData,
                                 claimsAreSelectable = response.claimsAreSelectable,
+                                veranaTrust = VeranaTrustState.resolving,
                             )
                         }
+
+                        collectVeranaTrust(
+                            certificates = response.veranaCertificates,
+                            vct = response.veranaVct,
+                        )
 
                         updateData(updatedItems = requestData.selectedDocuments)
                     }
@@ -194,10 +210,18 @@ class PresentationRequestViewModel(
                             copy(
                                 isLoading = false,
                                 error = null,
-                                headerConfig = updatedHeaderConfig,
+                                headerConfig = updatedHeaderConfig.copy(
+                                    veranaTrustCard = VeranaTrustState.resolving.toCardUi(),
+                                ),
                                 requestDataUi = RequestDataUi.NoData,
+                                veranaTrust = VeranaTrustState.resolving,
                             )
                         }
+
+                        collectVeranaTrust(
+                            certificates = response.veranaCertificates,
+                            vct = null,
+                        )
                     }
                 }
             }
@@ -213,8 +237,24 @@ class PresentationRequestViewModel(
 
     override fun cleanUp() {
         super.cleanUp()
+        veranaTrustJob?.cancel()
+        veranaTrustController.clearVerifierState()
         interactor.stopPresentation()
         getOrNullKoinScope(viewState.value.presentationScopeId)?.close()
+    }
+
+    private fun collectVeranaTrust(certificates: List<X509Certificate>, vct: String?) {
+        veranaTrustJob?.cancel()
+        veranaTrustJob = viewModelScope.launch {
+            veranaTrustController.verifierTrust(certificates, vct).collect { trust ->
+                setState {
+                    copy(
+                        veranaTrust = trust,
+                        headerConfig = headerConfig.copy(veranaTrustCard = trust.toCardUi()),
+                    )
+                }
+            }
+        }
     }
 
     private fun getRelyingPartyData(

@@ -76,14 +76,13 @@ fun provideWalletAttestationRepository(httpClient: HttpClient): WalletAttestatio
     WalletAttestationRepositoryImpl(httpClient)
 
 // Its own client: the shared one is also Wallet-Core's, and a trust check must not
-// change SDK traffic behaviour or inherit its logging of credential bodies.
+// change SDK traffic behaviour or inherit its logging of credential bodies. No
+// ContentNegotiation either - it appends application/json to the Accept header, and the
+// signed-metadata fetch must ask for application/jwt alone to be answered with the JWS.
 @Single
-fun provideVeranaTrustRepository(json: Json): VeranaTrustRepository =
+fun provideVeranaTrustRepository(): VeranaTrustRepository =
     VeranaTrustRepositoryImpl(
         httpClient = HttpClient(Android) {
-            install(ContentNegotiation) {
-                json(json = json, contentType = ContentType.Application.Json)
-            }
             install(HttpTimeout) {
                 requestTimeoutMillis = 10_000
             }

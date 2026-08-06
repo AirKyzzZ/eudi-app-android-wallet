@@ -30,6 +30,7 @@ import eu.europa.ec.commonfeature.ui.request.model.RequestDocumentItemUi
 import eu.europa.ec.commonfeature.util.toCardUi
 import eu.europa.ec.corelogic.controller.VeranaTrustController
 import eu.europa.ec.corelogic.controller.VeranaTrustState
+import eu.europa.ec.corelogic.controller.VeranaVerdict
 import eu.europa.ec.corelogic.di.getOrNullKoinScope
 import eu.europa.ec.presentationfeature.interactor.PresentationRequestInteractor
 import eu.europa.ec.presentationfeature.interactor.PresentationRequestInteractorPartialState
@@ -250,7 +251,14 @@ class PresentationRequestViewModel(
                 setState {
                     copy(
                         veranaTrust = trust,
-                        headerConfig = headerConfig.copy(veranaTrustCard = trust.toCardUi()),
+                        headerConfig = headerConfig.copy(
+                            veranaTrustCard = trust.toCardUi(),
+                            // The wallet's own tick means "reader auth chained to something"; left
+                            // alone it puts a green check beside a service the registry refuses.
+                            relyingPartyData = headerConfig.relyingPartyData?.copy(
+                                isVerified = trust.verdict == VeranaVerdict.TRUSTED,
+                            ),
+                        ),
                     )
                 }
             }

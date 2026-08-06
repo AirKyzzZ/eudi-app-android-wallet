@@ -44,6 +44,8 @@ data class VeranaTrustState(
     val operatorName: String? = null,
     val serviceCredentialPresented: Boolean = false,
     val operatorCredentialPresented: Boolean = false,
+    val serviceSelfIssued: Boolean = false,
+    val operatorSelfIssued: Boolean = false,
     val accreditation: VeranaAccreditation? = null,
     val production: Boolean = true,
 ) {
@@ -148,9 +150,11 @@ class VeranaTrustControllerImpl(
         return stateFrom(did, resolution, accreditation)
     }
 
-    // Both mandatory identity credentials must verify inside Q1; exactly one is PARTIAL. The
-    // resolver's own trustStatus agrees on the live cast, but the credential pair is the rule
-    // the versioned card is written against.
+    // The tick follows the resolution, never bare credential validity: the untrusted demo services
+    // issue themselves structurally valid ECS credentials, so reading the credential pair alone
+    // would render a self-asserted name as verified - exactly the phishing the card exists to stop.
+    // Inside a registry-verified resolution, both mandatory credentials give TRUSTED and one gives
+    // PARTIAL.
     private fun stateFrom(
         did: String,
         resolution: VeranaTrustResolution,
@@ -159,8 +163,9 @@ class VeranaTrustControllerImpl(
         val credentials = resolution.credentials
         val service = credentials.findEcs("ECS-SERVICE")
         val organization = credentials.findEcs("ECS-ORG", "ECS-ORGANIZATION", "ECS-PERSONA")
-        val serviceValid = service?.isValid == true
-        val organizationValid = organization?.isValid == true
+        val registryVerified = resolution.trustStatus != "UNTRUSTED"
+        val serviceValid = registryVerified && service?.isValid == true
+        val organizationValid = registryVerified && organization?.isValid == true
 
         val verdict = when {
             serviceValid && organizationValid -> VeranaVerdict.TRUSTED
@@ -176,20 +181,26 @@ class VeranaTrustControllerImpl(
             operatorName = organization?.takeIf { organizationValid }?.claimName(),
             serviceCredentialPresented = service != null,
             operatorCredentialPresented = organization != null,
+            serviceSelfIssued = service?.issuedBy == did,
+            operatorSelfIssued = organization?.issuedBy == did,
             accreditation = accreditation,
             production = resolution.production,
         )
     }
 
-    private fun untrusted(did: String, credentials: List<VeranaTrustCredential>?): VeranaTrustState =
-        VeranaTrustState(
+    private fun untrusted(did: String, credentials: List<VeranaTrustCredential>?): VeranaTrustState {
+        val service = credentials.findEcs("ECS-SERVICE")
+        val organization = credentials.findEcs("ECS-ORG", "ECS-ORGANIZATION", "ECS-PERSONA")
+        return VeranaTrustState(
             verdict = VeranaVerdict.UNTRUSTED,
             sentence = "The Verana public registry does not vouch for this service.",
             did = did,
-            serviceCredentialPresented = credentials?.findEcs("ECS-SERVICE") != null,
-            operatorCredentialPresented = credentials
-                ?.findEcs("ECS-ORG", "ECS-ORGANIZATION", "ECS-PERSONA") != null,
+            serviceCredentialPresented = service != null,
+            operatorCredentialPresented = organization != null,
+            serviceSelfIssued = service?.issuedBy == did,
+            operatorSelfIssued = organization?.issuedBy == did,
         )
+    }
 
     // Wording fixed by the versioned card at playground/public/trust-card/index.html: the same
     // evaluation must not read differently depending on which wallet rendered it.

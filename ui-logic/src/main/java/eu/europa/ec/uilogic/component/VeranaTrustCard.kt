@@ -53,8 +53,12 @@ data class VeranaTrustCardUi(
     val operatorName: String? = null,
     val serviceCredentialPresented: Boolean = false,
     val operatorCredentialPresented: Boolean = false,
+    val serviceSelfIssued: Boolean = false,
+    val operatorSelfIssued: Boolean = false,
     val accreditationReason: String? = null,
 )
+
+private const val SELF_ISSUED = "Issued by this service to itself, so nothing independent verifies it."
 
 private val Green = Color(0xFF16A34A)
 private val Amber = Color(0xFFD97706)
@@ -126,6 +130,9 @@ fun VeranaTrustCard(
                 ?: if (data.serviceCredentialPresented) "Service claims not verified"
                 else "No ECS-Service credential presented",
             verified = data.serviceName != null,
+            subLine = SELF_ISSUED.takeIf {
+                data.serviceName == null && data.serviceCredentialPresented && data.serviceSelfIssued
+            },
         )
         IdentityBlock(
             label = "OPERATED BY",
@@ -133,10 +140,12 @@ fun VeranaTrustCard(
                 ?: if (data.operatorCredentialPresented) "Operator claims not verified"
                 else "No ECS-Organization credential presented",
             verified = data.operatorName != null,
-            subLine = if (data.operatorName == null && !data.operatorCredentialPresented) {
-                "Nothing verifies who operates this service"
-            } else {
-                null
+            subLine = when {
+                data.operatorName == null && !data.operatorCredentialPresented ->
+                    "Nothing verifies who operates this service"
+
+                data.operatorName == null && data.operatorSelfIssued -> SELF_ISSUED
+                else -> null
             },
         )
 

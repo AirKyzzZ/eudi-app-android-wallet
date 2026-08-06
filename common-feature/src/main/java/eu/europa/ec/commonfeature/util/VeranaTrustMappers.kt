@@ -35,5 +35,7 @@ fun VeranaTrustState.toCardUi(): VeranaTrustCardUi = VeranaTrustCardUi(
     operatorName = operatorName,
     serviceCredentialPresented = serviceCredentialPresented,
     operatorCredentialPresented = operatorCredentialPresented,
+    serviceSelfIssued = serviceSelfIssued,
+    operatorSelfIssued = operatorSelfIssued,
     accreditationReason = accreditation?.takeIf { !it.granted }?.reason,
 )

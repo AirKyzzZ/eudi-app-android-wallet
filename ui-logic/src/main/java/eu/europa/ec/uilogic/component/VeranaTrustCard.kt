@@ -17,6 +17,7 @@
 package eu.europa.ec.uilogic.component
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +35,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -250,7 +254,7 @@ private fun IdentityBlock(
                     color = if (verified) MaterialTheme.colorScheme.onSurface else Grey,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                countryCode?.let { Pill(text = it, color = Red) }
+                countryCode?.let { CountryFlag(it) }
             }
             detail?.let {
                 Text(
@@ -417,6 +421,37 @@ private fun VerdictPill(verdict: VeranaVerdictUi) {
             fontWeight = FontWeight.Bold,
             color = verdict.color,
         )
+    }
+}
+
+@Composable
+private fun CountryFlag(code: String) {
+    val key = code.uppercase()
+    // Drawn, never an emoji: regional-indicator glyphs fall back inconsistently on OEM Android
+    // builds, so the flag is painted. Unknown codes degrade to the plain code, not a broken glyph.
+    if (key == "CH") {
+        Canvas(modifier = Modifier.size(22.dp)) {
+            val s = size.minDimension
+            drawRoundRect(
+                color = Color(0xFFDA291C),
+                cornerRadius = CornerRadius(s * 0.15f, s * 0.15f),
+            )
+            val thickness = s * 0.14f
+            val length = s * 0.6f
+            val c = s / 2f
+            drawRect(
+                color = Color.White,
+                topLeft = Offset(c - thickness / 2f, c - length / 2f),
+                size = Size(thickness, length),
+            )
+            drawRect(
+                color = Color.White,
+                topLeft = Offset(c - length / 2f, c - thickness / 2f),
+                size = Size(length, thickness),
+            )
+        }
+    } else {
+        Pill(text = key, color = Grey)
     }
 }
 

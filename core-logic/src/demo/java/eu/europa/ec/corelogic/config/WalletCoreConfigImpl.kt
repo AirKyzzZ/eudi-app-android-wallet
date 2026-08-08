@@ -21,6 +21,7 @@ import android.os.Build
 import eu.europa.ec.businesslogic.config.ConfigLogic
 import eu.europa.ec.corelogic.BuildConfig
 import eu.europa.ec.corelogic.model.DocumentIdentifier
+import eu.europa.ec.eudi.iso18013.transfer.readerauth.ReaderTrustStore
 import eu.europa.ec.eudi.wallet.EudiWalletConfig
 import eu.europa.ec.eudi.wallet.document.CreateDocumentSettings.CredentialPolicy
 import eu.europa.ec.eudi.wallet.issue.openid4vci.OpenId4VciManager
@@ -29,6 +30,7 @@ import eu.europa.ec.eudi.wallet.transfer.openId4vp.ClientIdScheme
 import eu.europa.ec.eudi.wallet.transfer.openId4vp.Format
 import eu.europa.ec.eudi.wallet.transfer.openId4vp.PreregisteredVerifier
 import eu.europa.ec.resourceslogic.R
+import java.security.cert.X509Certificate
 import java.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -148,6 +150,19 @@ internal class WalletCoreConfigImpl(
                         R.raw.r45_staging,
                         R.raw.multipaz
                     )
+
+                    // The cast signs requests under self-signed development certificates; chain
+                    // trust is deliberately delegated to the Verana registry gate, which blocks
+                    // the action itself.
+                    configureReaderTrustStore(object : ReaderTrustStore {
+                        override fun createCertificationTrustPath(
+                            chain: List<X509Certificate>
+                        ): List<X509Certificate> = chain
+
+                        override fun validateCertificationTrustPath(
+                            chain: List<X509Certificate>
+                        ): Boolean = true
+                    })
                 }
             }
             return _config!!
@@ -155,11 +170,16 @@ internal class WalletCoreConfigImpl(
 
     override val issuersConfig: List<VciConfig>
         get() = listOf(
+            // Fallback profile for issuers outside the EU lists, the Verana demo cast among
+            // them: public client, first in the unmatched-offer walk; the Authbound issuers
+            // still win their own offers by exact issuer-url match.
             VciConfig(
-                walletProviderConfig = authboundWalletProviderConfig,
+                walletProviderConfig = euWalletProviderConfig,
                 config = OpenId4VciManager.Config.Builder()
-                    .withIssuerUrl(issuerUrl = "https://issuer.authbound.io/api/v1/openid4vci")
-                    .withClientAuthenticationType(OpenId4VciManager.ClientAuthenticationType.AttestationBased)
+                    .withIssuerUrl(issuerUrl = "https://playground.testnet.verana.network")
+                    .withClientAuthenticationType(
+                        OpenId4VciManager.ClientAuthenticationType.None(clientId = "verana-eudi-wallet")
+                    )
                     .withAuthFlowRedirectionURI(BuildConfig.ISSUE_AUTHORIZATION_DEEPLINK)
                     .withParUsage(OpenId4VciManager.Config.ParUsage.IF_SUPPORTED)
                     .withDPopConfig(DPopConfig.Default)
@@ -167,9 +187,9 @@ internal class WalletCoreConfigImpl(
                 order = 0
             ),
             VciConfig(
-                walletProviderConfig = euWalletProviderConfig,
+                walletProviderConfig = authboundWalletProviderConfig,
                 config = OpenId4VciManager.Config.Builder()
-                    .withIssuerUrl(issuerUrl = "https://issuer.eudiw.dev")
+                    .withIssuerUrl(issuerUrl = "https://issuer.authbound.io/api/v1/openid4vci")
                     .withClientAuthenticationType(OpenId4VciManager.ClientAuthenticationType.AttestationBased)
                     .withAuthFlowRedirectionURI(BuildConfig.ISSUE_AUTHORIZATION_DEEPLINK)
                     .withParUsage(OpenId4VciManager.Config.ParUsage.IF_SUPPORTED)
@@ -180,13 +200,24 @@ internal class WalletCoreConfigImpl(
             VciConfig(
                 walletProviderConfig = euWalletProviderConfig,
                 config = OpenId4VciManager.Config.Builder()
-                    .withIssuerUrl(issuerUrl = "https://issuer-backend.eudiw.dev")
+                    .withIssuerUrl(issuerUrl = "https://issuer.eudiw.dev")
                     .withClientAuthenticationType(OpenId4VciManager.ClientAuthenticationType.AttestationBased)
                     .withAuthFlowRedirectionURI(BuildConfig.ISSUE_AUTHORIZATION_DEEPLINK)
                     .withParUsage(OpenId4VciManager.Config.ParUsage.IF_SUPPORTED)
                     .withDPopConfig(DPopConfig.Default)
                     .build(),
                 order = 2
+            ),
+            VciConfig(
+                walletProviderConfig = euWalletProviderConfig,
+                config = OpenId4VciManager.Config.Builder()
+                    .withIssuerUrl(issuerUrl = "https://issuer-backend.eudiw.dev")
+                    .withClientAuthenticationType(OpenId4VciManager.ClientAuthenticationType.AttestationBased)
+                    .withAuthFlowRedirectionURI(BuildConfig.ISSUE_AUTHORIZATION_DEEPLINK)
+                    .withParUsage(OpenId4VciManager.Config.ParUsage.IF_SUPPORTED)
+                    .withDPopConfig(DPopConfig.Default)
+                    .build(),
+                order = 3
             ),
         )
 

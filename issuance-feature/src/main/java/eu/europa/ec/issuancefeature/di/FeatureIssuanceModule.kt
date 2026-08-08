@@ -20,6 +20,7 @@ import eu.europa.ec.businesslogic.config.ConfigLogic
 import eu.europa.ec.businesslogic.controller.log.LogController
 import eu.europa.ec.businesslogic.provider.UuidProvider
 import eu.europa.ec.commonfeature.interactor.DeviceAuthenticationInteractor
+import eu.europa.ec.corelogic.controller.VeranaTrustController
 import eu.europa.ec.corelogic.controller.WalletCoreDocumentsController
 import eu.europa.ec.issuancefeature.interactor.AddDocumentInteractor
 import eu.europa.ec.issuancefeature.interactor.AddDocumentInteractorImpl
@@ -69,7 +70,8 @@ fun provideDocumentOfferInteractor(
     deviceAuthenticationInteractor: DeviceAuthenticationInteractor,
     uiSerializer: UiSerializer,
     logController: LogController,
-    configLogic: ConfigLogic
+    configLogic: ConfigLogic,
+    veranaTrustController: VeranaTrustController
 ): DocumentOfferInteractor =
     DocumentOfferInteractorImpl(
         walletCoreDocumentsController,
@@ -77,5 +79,6 @@ fun provideDocumentOfferInteractor(
         resourceProvider,
         uiSerializer,
         logController,
-        configLogic
+        configLogic,
+        veranaTrustController
     )

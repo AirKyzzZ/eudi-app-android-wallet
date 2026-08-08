@@ -29,6 +29,9 @@ import eu.europa.ec.commonfeature.config.PresentationMode
 import eu.europa.ec.commonfeature.config.RequestUriConfig
 import eu.europa.ec.commonfeature.di.CREDENTIAL_OFFER_ISSUANCE_SCOPE_ID
 import eu.europa.ec.commonfeature.di.getOrCreateCredentialOfferScope
+import eu.europa.ec.commonfeature.util.toCardUi
+import eu.europa.ec.corelogic.controller.VeranaTrustController
+import eu.europa.ec.corelogic.controller.VeranaTrustState
 import eu.europa.ec.corelogic.di.getOrCreatePresentationScope
 import eu.europa.ec.eudi.wallet.document.DocumentId
 import eu.europa.ec.eudi.wallet.issue.openid4vci.Offer
@@ -55,6 +58,7 @@ import eu.europa.ec.uilogic.navigation.helper.generateComposableArguments
 import eu.europa.ec.uilogic.navigation.helper.generateComposableNavigationLink
 import eu.europa.ec.uilogic.navigation.helper.hasDeepLink
 import eu.europa.ec.uilogic.serializer.UiSerializer
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.koin.core.annotation.KoinViewModel
 import org.koin.core.annotation.InjectedParam
@@ -73,6 +77,7 @@ data class State(
     val documents: List<ListItemDataUi> = emptyList(),
     val noDocument: Boolean = false,
     val txCodeLength: Int? = null,
+    val veranaTrust: VeranaTrustState? = null,
 ) : ViewState
 
 sealed class Event : ViewEvent {
@@ -113,10 +118,14 @@ class DocumentOfferViewModel(
     private val resourceProvider: ResourceProvider,
     private val uiSerializer: UiSerializer,
     private val logController: LogController,
+    private val veranaTrustController: VeranaTrustController,
     @InjectedParam private val offerSerializedConfig: String,
 ) : MviViewModel<Event, State, Effect>() {
 
     private var resolvedOffer: Offer? = null
+
+    private var veranaTrustJob: Job? = null
+    private var veranaCredentialName: String? = null
 
     override fun setInitialState(): State {
         val deserializedOfferUiConfig = uiSerializer.fromBase64(
@@ -247,14 +256,23 @@ class DocumentOfferViewModel(
                                 isInitialised = true,
                                 noDocument = false,
                                 txCodeLength = response.txCodeLength,
+                                veranaTrust = VeranaTrustState.resolving,
                                 headerConfig = headerConfig.copy(
                                     relyingPartyData = getHeaderConfigIssuerData(
                                         issuerName = response.issuerName,
                                         issuerLogo = response.issuerLogo,
-                                    )
+                                    ),
+                                    veranaTrustCard = VeranaTrustState.resolving.toCardUi(credentialName = veranaCredentialName),
                                 ),
                             )
                         }
+
+                        veranaCredentialName = response.documents.firstOrNull()?.title
+                        collectVeranaTrust(
+                            issuerUrl = response.veranaIssuerUrl,
+                            vct = response.veranaVct,
+                        )
+
                         handleDeepLink(deepLink)
                     }
                     is ResolveDocumentOfferInteractorPartialState.NoDocument -> {
@@ -275,6 +293,34 @@ class DocumentOfferViewModel(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+
+    private fun collectVeranaTrust(issuerUrl: String?, vct: String?) {
+        veranaTrustJob?.cancel()
+        if (issuerUrl == null) {
+            val unverified = VeranaTrustState.unverified()
+            setState {
+                copy(
+                    veranaTrust = unverified,
+                    headerConfig = headerConfig.copy(
+                        veranaTrustCard = unverified.toCardUi(credentialName = veranaCredentialName),
+                    ),
+                )
+            }
+            return
+        }
+        veranaTrustJob = viewModelScope.launch {
+            veranaTrustController.issuerTrust(issuerUrl, vct).collect { trust ->
+                setState {
+                    copy(
+                        veranaTrust = trust,
+                        headerConfig = headerConfig.copy(
+                            veranaTrustCard = trust.toCardUi(credentialName = veranaCredentialName),
+                        ),
+                    )
                 }
             }
         }
@@ -350,6 +396,17 @@ class DocumentOfferViewModel(
                                 isLoading = false,
                                 error = ContentErrorConfig(
                                     errorSubTitle = response.errorMessage,
+                                    onCancel = { setEvent(Event.DismissError) }
+                                )
+                            )
+                        }
+                    }
+                    is IssueDocumentsInteractorPartialState.IssuerNotTrusted -> {
+                        setState {
+                            copy(
+                                isLoading = false,
+                                error = ContentErrorConfig(
+                                    errorSubTitle = "The Verana public registry does not vouch for this issuer.",
                                     onCancel = { setEvent(Event.DismissError) }
                                 )
                             )

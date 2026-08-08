@@ -29,6 +29,8 @@ import eu.europa.ec.businesslogic.controller.wallet.LocalWalletCleanupController
 import eu.europa.ec.businesslogic.controller.wallet.UserDocumentOwnershipController
 import eu.europa.ec.corelogic.controller.LocalWalletCleanupControllerImpl
 import eu.europa.ec.corelogic.controller.UserDocumentOwnershipControllerImpl
+import eu.europa.ec.corelogic.controller.VeranaTrustController
+import eu.europa.ec.corelogic.controller.VeranaTrustControllerImpl
 import eu.europa.ec.corelogic.controller.WalletCoreDocumentsController
 import eu.europa.ec.corelogic.controller.WalletCoreDocumentsControllerImpl
 import eu.europa.ec.corelogic.controller.WalletCoreLogController
@@ -40,6 +42,7 @@ import eu.europa.ec.corelogic.provider.IssuerOpenId4VciManagerFactoryImpl
 import eu.europa.ec.corelogic.provider.WalletCoreAttestationProviderFactory
 import eu.europa.ec.corelogic.provider.WalletCoreAttestationProviderFactoryImpl
 import eu.europa.ec.eudi.wallet.EudiWallet
+import eu.europa.ec.networklogic.repository.VeranaTrustRepository
 import eu.europa.ec.networklogic.repository.WalletAttestationRepository
 import eu.europa.ec.resourceslogic.provider.ResourceProvider
 import eu.europa.ec.storagelogic.dao.BookmarkDao
@@ -113,6 +116,11 @@ fun provideWalletCoreConfig(
     configLogic: ConfigLogic,
     httpClient: io.ktor.client.HttpClient,
 ): WalletCoreConfig = WalletCoreConfigImpl(context, configLogic, httpClient)
+
+@Single
+fun provideVeranaTrustController(
+    veranaTrustRepository: VeranaTrustRepository
+): VeranaTrustController = VeranaTrustControllerImpl(veranaTrustRepository)
 
 @Single
 fun provideWalletCoreLogController(logController: LogController): WalletCoreLogController =

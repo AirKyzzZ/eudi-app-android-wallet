@@ -58,6 +58,7 @@ import org.koin.core.qualifier.named
 import org.koin.core.annotation.Scope
 import org.koin.core.annotation.Scoped
 import java.net.URI
+import java.security.cert.X509Certificate
 
 sealed class PresentationControllerConfig(val initiatorRoute: String) {
     data class OpenId4VP(val uri: String, val initiator: String) :
@@ -79,6 +80,7 @@ sealed class TransferEventPartialState {
         val requestData: List<RequestedDocument>,
         val verifierName: String?,
         val verifierIsTrusted: Boolean,
+        val veranaCertificates: List<X509Certificate> = emptyList(),
     ) : TransferEventPartialState()
 
     data object ResponseSent : TransferEventPartialState()
@@ -216,6 +218,7 @@ class WalletCorePresentationControllerImpl(
     private val logController: LogController,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
     walletCore: EudiWallet? = null,
+    private val veranaTrustController: VeranaTrustController? = null,
 ) : WalletCorePresentationController {
 
     companion object {
@@ -308,10 +311,14 @@ class WalletCorePresentationControllerImpl(
                             .firstOrNull()?.readerAuth?.isVerified == true
                         verifierIsTrusted = isTrusted
 
+                        val veranaCertificates = requestedDocuments.requestedDocuments
+                            .firstOrNull()?.readerAuth?.readerCertificateChain.orEmpty()
+
                         TransferEventPartialState.RequestReceived(
                             requestData = requestedDocuments.requestedDocuments,
                             verifierName = verifierName,
-                            verifierIsTrusted = isTrusted
+                            verifierIsTrusted = isTrusted,
+                            veranaCertificates = veranaCertificates
                         )
                     } ?: TransferEventPartialState.Error(error = genericErrorMessage)
                 )
@@ -416,6 +423,16 @@ class WalletCorePresentationControllerImpl(
     }
 
     override fun sendRequestedDocuments(): SendRequestedDocumentsPartialState {
+        // The Verana verdict gates the wire send, not just the consent screen: a remembered or
+        // re-entered flow that skips the dialog must still be unable to disclose. OpenID4VP only;
+        // proximity and DC-API carry no verdict.
+        if (::_config.isInitialized && _config is PresentationControllerConfig.OpenId4VP &&
+            veranaTrustController?.latestVerifierState?.value?.allowAction == false
+        ) {
+            return SendRequestedDocumentsPartialState.Failure(
+                error = "The Verana public registry does not vouch for this verifier."
+            )
+        }
         return disclosedDocuments?.let { safeDisclosedDocuments ->
 
             var result: SendRequestedDocumentsPartialState =

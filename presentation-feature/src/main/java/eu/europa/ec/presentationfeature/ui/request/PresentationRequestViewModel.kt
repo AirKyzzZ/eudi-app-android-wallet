@@ -23,6 +23,10 @@ import eu.europa.ec.commonfeature.config.RequestUriConfig
 import eu.europa.ec.commonfeature.ui.request.Event
 import eu.europa.ec.commonfeature.ui.request.RequestViewModel
 import eu.europa.ec.commonfeature.ui.request.model.RequestDocumentItemUi
+import eu.europa.ec.commonfeature.util.toCardUi
+import eu.europa.ec.corelogic.controller.VeranaTrustController
+import eu.europa.ec.corelogic.controller.VeranaTrustState
+import eu.europa.ec.corelogic.controller.VeranaVerdict
 import eu.europa.ec.presentationfeature.interactor.PresentationRequestInteractor
 import eu.europa.ec.presentationfeature.interactor.PresentationRequestInteractorPartialState
 import eu.europa.ec.resourceslogic.R
@@ -35,6 +39,8 @@ import eu.europa.ec.uilogic.navigation.helper.IntentAction
 import eu.europa.ec.uilogic.navigation.helper.generateComposableArguments
 import eu.europa.ec.uilogic.navigation.helper.generateComposableNavigationLink
 import eu.europa.ec.uilogic.serializer.UiSerializer
+import java.security.cert.X509Certificate
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.koin.core.annotation.KoinViewModel
 import org.koin.core.annotation.InjectedParam
@@ -44,8 +50,12 @@ class PresentationRequestViewModel(
     private val interactor: PresentationRequestInteractor,
     private val resourceProvider: ResourceProvider,
     private val uiSerializer: UiSerializer,
+    private val veranaTrustController: VeranaTrustController,
     @InjectedParam private val requestUriConfigRaw: String
 ) : RequestViewModel() {
+
+    private var veranaTrustJob: Job? = null
+    private var veranaCredentialName: String? = null
 
     override fun getHeaderConfig(): ContentHeaderConfig {
         return ContentHeaderConfig(
@@ -131,10 +141,21 @@ class PresentationRequestViewModel(
                             copy(
                                 isLoading = false,
                                 error = null,
-                                headerConfig = updatedHeaderConfig,
+                                headerConfig = updatedHeaderConfig.copy(
+                                    veranaTrustCard = VeranaTrustState.resolving.toCardUi(asksFor = true, credentialName = veranaCredentialName),
+                                ),
                                 items = response.requestDocuments,
+                                veranaTrust = VeranaTrustState.resolving,
                             )
                         }
+
+                        veranaCredentialName = response.requestDocuments
+                            .firstOrNull()
+                            ?.let { it.domainPayload.docName }
+                        collectVeranaTrust(
+                            certificates = response.veranaCertificates,
+                            vct = response.veranaVct,
+                        )
                     }
 
                     is PresentationRequestInteractorPartialState.Disconnect -> {
@@ -153,10 +174,18 @@ class PresentationRequestViewModel(
                             copy(
                                 isLoading = false,
                                 error = null,
-                                headerConfig = updatedHeaderConfig,
+                                headerConfig = updatedHeaderConfig.copy(
+                                    veranaTrustCard = VeranaTrustState.resolving.toCardUi(asksFor = true, credentialName = veranaCredentialName),
+                                ),
                                 noItems = true,
+                                veranaTrust = VeranaTrustState.resolving,
                             )
                         }
+
+                        collectVeranaTrust(
+                            certificates = response.veranaCertificates,
+                            vct = null,
+                        )
                     }
                 }
             }
@@ -178,8 +207,31 @@ class PresentationRequestViewModel(
     }
 
     override fun cleanUp() {
-        interactor.stopPresentation()
         super.cleanUp()
+        veranaTrustJob?.cancel()
+        veranaTrustController.clearVerifierState()
+        interactor.stopPresentation()
+    }
+
+    private fun collectVeranaTrust(certificates: List<X509Certificate>, vct: String?) {
+        veranaTrustJob?.cancel()
+        veranaTrustJob = viewModelScope.launch {
+            veranaTrustController.verifierTrust(certificates, vct).collect { trust ->
+                setState {
+                    copy(
+                        veranaTrust = trust,
+                        headerConfig = headerConfig.copy(
+                            veranaTrustCard = trust.toCardUi(asksFor = true, credentialName = veranaCredentialName),
+                            // The wallet's own tick means "reader auth chained to something"; left
+                            // alone it puts a green check beside a service the registry refuses.
+                            relyingPartyData = headerConfig.relyingPartyData?.copy(
+                                isVerified = trust.verdict == VeranaVerdict.TRUSTED,
+                            ),
+                        ),
+                    )
+                }
+            }
+        }
     }
 
     private fun getRelyingPartyData(

@@ -28,8 +28,10 @@ import eu.europa.ec.commonfeature.ui.request.transformer.RequestTransformer
 import eu.europa.ec.corelogic.controller.TransferEventPartialState
 import eu.europa.ec.corelogic.controller.WalletCoreDocumentsController
 import eu.europa.ec.corelogic.controller.WalletCorePresentationController
+import eu.europa.ec.eudi.wallet.document.format.SdJwtVcFormat
 import eu.europa.ec.resourceslogic.provider.ResourceProvider
 import eu.europa.ec.uilogic.navigation.helper.IntentAction
+import java.security.cert.X509Certificate
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.mapNotNull
 
@@ -37,12 +39,15 @@ sealed class PresentationRequestInteractorPartialState {
     data class Success(
         val verifierName: String?,
         val verifierIsTrusted: Boolean,
-        val requestDocuments: List<RequestDocumentItemUi>
+        val requestDocuments: List<RequestDocumentItemUi>,
+        val veranaCertificates: List<X509Certificate> = emptyList(),
+        val veranaVct: String? = null,
     ) : PresentationRequestInteractorPartialState()
 
     data class NoData(
         val verifierName: String?,
         val verifierIsTrusted: Boolean,
+        val veranaCertificates: List<X509Certificate> = emptyList(),
     ) : PresentationRequestInteractorPartialState()
 
     data class Failure(val error: String) : PresentationRequestInteractorPartialState()
@@ -85,6 +90,7 @@ class PresentationRequestInteractorImpl(
                         PresentationRequestInteractorPartialState.NoData(
                             verifierName = response.verifierName,
                             verifierIsTrusted = response.verifierIsTrusted,
+                            veranaCertificates = response.veranaCertificates,
                         )
                     } else {
                         val documentsDomain = RequestTransformer.transformToDomainItems(
@@ -97,10 +103,18 @@ class PresentationRequestInteractorImpl(
                                 walletCoreDocumentsController.isDocumentRevoked(it.docId)
                             }
 
+                        val storageDocuments = walletCoreDocumentsController.getAllIssuedDocuments()
+                        val matchedDocumentIds = documentsDomain.map { it.docId }.toSet()
+                        val veranaVct = storageDocuments
+                            .filter { it.id in matchedDocumentIds }
+                            .firstNotNullOfOrNull { (it.format as? SdJwtVcFormat)?.vct }
+
                         if (documentsDomain.isNotEmpty()) {
                             PresentationRequestInteractorPartialState.Success(
                                 verifierName = response.verifierName,
                                 verifierIsTrusted = response.verifierIsTrusted,
+                                veranaCertificates = response.veranaCertificates,
+                                veranaVct = veranaVct,
                                 requestDocuments = RequestTransformer.transformToUiItems(
                                     documentsDomain = documentsDomain,
                                     resourceProvider = resourceProvider,
@@ -110,6 +124,7 @@ class PresentationRequestInteractorImpl(
                             PresentationRequestInteractorPartialState.NoData(
                                 verifierName = response.verifierName,
                                 verifierIsTrusted = response.verifierIsTrusted,
+                                veranaCertificates = response.veranaCertificates,
                             )
                         }
                     }

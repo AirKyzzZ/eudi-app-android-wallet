@@ -18,6 +18,7 @@ package eu.europa.ec.commonfeature.ui.request
 
 import eu.europa.ec.commonfeature.ui.request.model.DomainDocumentFormat
 import eu.europa.ec.commonfeature.ui.request.model.RequestDocumentItemUi
+import eu.europa.ec.corelogic.controller.VeranaTrustState
 import eu.europa.ec.corelogic.di.getOrNullKoinScope
 import eu.europa.ec.corelogic.model.ClaimPathDomain
 import eu.europa.ec.uilogic.component.AppIcons
@@ -48,10 +49,16 @@ data class State(
 
     val items: List<RequestDocumentItemUi> = emptyList(),
     val noItems: Boolean = false,
-    val allowShare: Boolean = false,
+    val itemsShareable: Boolean = false,
     val presentationScopeId: String = "",
-    val intentAction: IntentAction? = null
-) : ViewState
+    val intentAction: IntentAction? = null,
+
+    // Null on flows that carry no Verana verdict (proximity, DC-API); those stay ungated.
+    val veranaTrust: VeranaTrustState? = null,
+) : ViewState {
+    val allowShare: Boolean
+        get() = itemsShareable && veranaTrust?.allowAction != false
+}
 
 sealed class Event : ViewEvent {
     data class Init(val intentAction: IntentAction?) : Event()
@@ -119,7 +126,7 @@ abstract class RequestViewModel : MviViewModel<Event, State, Effect>() {
         setState {
             copy(
                 items = updatedItems,
-                allowShare = allowShare ?: hasAtLeastOneFieldSelected
+                itemsShareable = allowShare ?: hasAtLeastOneFieldSelected
             )
         }
     }

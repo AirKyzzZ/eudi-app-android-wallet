@@ -19,6 +19,9 @@ package eu.europa.ec.corelogic.di
 import android.content.Context
 import eu.europa.ec.authenticationlogic.repository.SupabaseAuthRepository
 import eu.europa.ec.businesslogic.config.ConfigLogic
+import eu.europa.ec.businesslogic.config.E2eRuntimeConfig
+import eu.europa.ec.eudi.iso18013.transfer.readerauth.ReaderTrustStore
+import java.security.cert.X509Certificate
 import eu.europa.ec.businesslogic.controller.crypto.CryptoController
 import eu.europa.ec.businesslogic.controller.log.LogController
 import eu.europa.ec.businesslogic.provider.UuidProvider
@@ -98,16 +101,33 @@ private fun createEudiWallet(
     walletCoreConfig: WalletCoreConfig,
     walletCoreLogController: WalletCoreLogController,
     walletCoreTransactionLogController: WalletCoreTransactionLogController,
-): EudiWallet = EudiWallet(
-    context = context,
-    config = walletCoreConfig.config,
-) {
-    withLogger(walletCoreLogController)
-    withTransactionLogger(walletCoreTransactionLogController)
+): EudiWallet {
+    val wallet = EudiWallet(
+        context = context,
+        config = walletCoreConfig.config,
+    ) {
+        withLogger(walletCoreLogController)
+        withTransactionLogger(walletCoreTransactionLogController)
 
-    withKtorHttpClientFactory {
-        ProvideKtorHttpClient.client()
+        withKtorHttpClientFactory {
+            ProvideKtorHttpClient.client()
+        }
     }
+    // The demo cast signs OpenID4VP requests with self-signed x5c certs that chain to no anchor;
+    // the SDK rejects them before the Verana gate runs. Demo build only — trust is delegated to
+    // the registry, which still blocks the action. Production keeps strict x5c validation.
+    if (E2eRuntimeConfig.isEnabled) {
+        wallet.setReaderTrustStore(object : ReaderTrustStore {
+            override fun createCertificationTrustPath(
+                chain: List<X509Certificate>
+            ): List<X509Certificate> = chain
+
+            override fun validateCertificationTrustPath(
+                chain: List<X509Certificate>
+            ): Boolean = true
+        })
+    }
+    return wallet
 }
 
 @Single

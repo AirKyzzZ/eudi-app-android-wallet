@@ -123,8 +123,10 @@ internal class WalletCoreConfigImpl(
                 }
 
                 _config = EudiWalletConfig {
+                    // Demo/testnet build: key-storage auth is off so the trust-demo flows record
+                    // unattended. The Verana gate is unaffected; do not carry this to production.
                     configureDocumentKeyCreation(
-                        userAuthenticationRequired = true,
+                        userAuthenticationRequired = false,
                         userAuthenticationTimeout = 30.seconds,
                         useStrongBoxForKeys = true
                     )

@@ -1117,7 +1117,9 @@ class WalletCoreDocumentsControllerImpl(
                 vciConfig.config.issuerUrl == id
             }
         }
-        return configuredEntry
+        // Verana demo issuers are per-service subdomains, so no static issuerUrl matches; fall back
+        // to the lowest-order manager (the public-client profile) and let the offer metadata drive.
+        return configuredEntry ?: openId4VciManagers.entries.minByOrNull { it.key.order }
     }
 
     private fun getVciManagerEntriesForOffer(

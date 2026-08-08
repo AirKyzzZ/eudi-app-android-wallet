@@ -21,7 +21,7 @@ import android.os.Build
 import eu.europa.ec.businesslogic.config.ConfigLogic
 import eu.europa.ec.corelogic.BuildConfig
 import eu.europa.ec.corelogic.model.DocumentIdentifier
-import eu.europa.ec.eudi.iso18013.transfer.readerauth.ReaderTrustStore
+import eu.europa.ec.eudi.iso18013.transfer.response.ReaderAuthPolicy
 import eu.europa.ec.eudi.wallet.EudiWalletConfig
 import eu.europa.ec.eudi.wallet.document.CreateDocumentSettings.CredentialPolicy
 import eu.europa.ec.eudi.wallet.issue.openid4vci.OpenId4VciManager
@@ -154,15 +154,7 @@ internal class WalletCoreConfigImpl(
                     // The cast signs requests under self-signed development certificates; chain
                     // trust is deliberately delegated to the Verana registry gate, which blocks
                     // the action itself.
-                    configureReaderTrustStore(object : ReaderTrustStore {
-                        override fun createCertificationTrustPath(
-                            chain: List<X509Certificate>
-                        ): List<X509Certificate> = chain
-
-                        override fun validateCertificationTrustPath(
-                            chain: List<X509Certificate>
-                        ): Boolean = true
-                    })
+                    configureReaderAuthPolicy(ReaderAuthPolicy.DoNotEnforce)
                 }
             }
             return _config!!

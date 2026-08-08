@@ -147,6 +147,16 @@ class DocumentOfferCodeViewModel(
                         )
                     }
 
+                    is IssueDocumentsInteractorPartialState.IssuerNotTrusted -> setState {
+                        copy(
+                            isLoading = false,
+                            error = ContentErrorConfig(
+                                errorSubTitle = "The Verana public registry does not vouch for this issuer.",
+                                onCancel = { setEvent(Event.DismissError) }
+                            )
+                        )
+                    }
+
                     is IssueDocumentsInteractorPartialState.Success -> {
 
                         setState {

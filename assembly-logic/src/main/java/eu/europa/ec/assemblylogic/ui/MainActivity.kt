@@ -28,7 +28,6 @@ import eu.europa.ec.dashboardfeature.router.featureDashboardGraph
 import eu.europa.ec.issuancefeature.router.featureIssuanceGraph
 import eu.europa.ec.presentationfeature.router.presentationGraph
 import eu.europa.ec.proximityfeature.router.featureProximityGraph
-import eu.europa.ec.authboundpidfeature.router.featureAuthboundPidGraph
 
 import eu.europa.ec.authenticationlogic.gate.LocalUnlockTracker
 import eu.europa.ec.startupfeature.router.featureStartupGraph
@@ -66,7 +65,6 @@ open class MainActivity : EudiComponentActivity() {
                 featureProximityGraph(it)
                 featureIssuanceGraph(it)
                 featureAuthenticationGraph(it)
-                featureAuthboundPidGraph(it)
             }
         }
     }

@@ -22,7 +22,6 @@ import eu.europa.ec.authenticationfeature.di.FeatureAuthenticationModule
 import eu.europa.ec.authenticationlogic.di.LogicAuthenticationModule
 import eu.europa.ec.authenticationlogic.di.supabaseModule
 import eu.europa.ec.businesslogic.di.LogicBusinessModule
-import eu.europa.ec.authboundpidfeature.di.FeatureAuthboundPidModule
 import eu.europa.ec.authboundpidlogic.di.LogicAuthboundPidModule
 import eu.europa.ec.commonfeature.di.FeatureCommonModule
 import eu.europa.ec.corelogic.di.LogicCoreModule
@@ -65,7 +64,6 @@ import org.koin.plugin.module.dsl.startKoin
         FeatureIssuanceModule::class,
         FeatureAuthenticationModule::class,
         FeatureWalletActivationModule::class,
-        FeatureAuthboundPidModule::class,
     ]
 )
 private class AuthboundWalletKoin

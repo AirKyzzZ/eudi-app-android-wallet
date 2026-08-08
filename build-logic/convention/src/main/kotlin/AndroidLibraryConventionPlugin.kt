@@ -97,7 +97,7 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                     addConfigField("SUPABASE_URL", project.getProperty("SUPABASE_URL") ?: "")
                     addConfigField("SUPABASE_ANON_KEY", project.getProperty("SUPABASE_ANON_KEY") ?: "")
                     addConfigField("GOOGLE_AUTH_CLIENT_ID", project.getProperty("GOOGLE_AUTH_CLIENT_ID") ?: "")
-                    addConfigField("E2E_MODE", false)
+                    addConfigField("E2E_MODE", project.getProperty<String>("E2E_MODE")?.toBoolean() ?: false)
                     addConfigField("E2E_ISSUER_BASE_URL", "")
                     addConfigField("E2E_VERIFIER_API_URL", "")
                     addConfigField("E2E_VERIFIER_UI_URL", "")

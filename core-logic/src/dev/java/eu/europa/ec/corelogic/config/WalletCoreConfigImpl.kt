@@ -230,6 +230,19 @@ internal class WalletCoreConfigImpl(
 
     private val e2eIssuers: List<VciConfig> = listOf(
         VciConfig(
+            walletProviderConfig = euWalletProviderConfig,
+            config = OpenId4VciManager.Config.Builder()
+                .withIssuerUrl(issuerUrl = "https://playground.testnet.verana.network")
+                .withClientAuthenticationType(
+                    OpenId4VciManager.ClientAuthenticationType.None(clientId = "verana-eudi-wallet")
+                )
+                .withAuthFlowRedirectionURI(BuildConfig.ISSUE_AUTHORIZATION_DEEPLINK)
+                .withParUsage(OpenId4VciManager.Config.ParUsage.IF_SUPPORTED)
+                .withDPopConfig(DPopConfig.Default)
+                .build(),
+            order = 0
+        ),
+        VciConfig(
             walletProviderConfig = authboundWalletProviderConfig,
             config = OpenId4VciManager.Config.Builder()
                 .withIssuerUrl(issuerUrl = "${e2eIssuerBaseUrl}/api/v1/openid4vci")
@@ -240,7 +253,7 @@ internal class WalletCoreConfigImpl(
                 .withParUsage(OpenId4VciManager.Config.ParUsage.IF_SUPPORTED)
                 .withDPopConfig(DPopConfig.Default)
                 .build(),
-            order = 0
+            order = 1
         )
     )
 

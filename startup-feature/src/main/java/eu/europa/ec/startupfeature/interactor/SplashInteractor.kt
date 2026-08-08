@@ -313,7 +313,9 @@ class SplashInteractorImpl(
             LocalAuthKeys.ENROLLMENT_REQUIRED,
             false
         )
-        val enrollmentRequired: Boolean = configuredEnrollmentRequired
+        // No Supabase signup runs in E2E mode to set the enrollment flag, so a fresh install
+        // must still be sent to PIN creation rather than the recovery/tamper branch.
+        val enrollmentRequired: Boolean = configuredEnrollmentRequired || E2eRuntimeConfig.isEnabled
         val isUnlocked: Boolean = localUnlockTracker.isUnlocked()
         logController.d(TAG, "Is unlocked (within TTL): $isUnlocked")
         val routeDecision: LocalAuthRouteDecision = resolveLocalAuthRouteUseCase(

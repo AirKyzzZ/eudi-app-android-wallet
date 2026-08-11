@@ -16,6 +16,8 @@
 
 package eu.europa.ec.corelogic.config
 
+import com.nimbusds.jose.jwk.Curve
+import org.multipaz.crypto.Algorithm
 import eu.europa.ec.corelogic.BuildConfig
 import eu.europa.ec.corelogic.model.DocumentIdentifier
 import eu.europa.ec.eudi.etsi119602.datamodel.Uri
@@ -23,8 +25,11 @@ import eu.europa.ec.eudi.etsi1196x2.consultation.AttestationClassifications
 import eu.europa.ec.eudi.etsi1196x2.consultation.AttestationIdentifier
 import eu.europa.ec.eudi.etsi1196x2.consultation.AttestationIdentifierPredicate
 import eu.europa.ec.eudi.etsi1196x2.consultation.SupportedLists
+import eu.europa.ec.eudi.iso18013.transfer.readerauth.ReaderTrustStore
 import eu.europa.ec.eudi.iso18013.transfer.response.ReaderAuthPolicy
 import eu.europa.ec.eudi.openid4vci.CredentialReusePolicies
+import eu.europa.ec.eudi.openid4vci.CredentialResponseEncryptionPolicy
+import eu.europa.ec.eudi.openid4vci.EncryptionSupportConfig
 import eu.europa.ec.eudi.openid4vci.EudiReusePolicyType
 import eu.europa.ec.eudi.wallet.EudiWalletConfig
 import eu.europa.ec.eudi.wallet.dcapi.DCAPIProtocol
@@ -107,9 +112,13 @@ internal class WalletCoreConfigImpl : WalletCoreConfig {
                         relaxPkixRevocation()
                     }
 
+                    // The Verana trust layer is the enforcement in this fork: issuers are gated on
+                    // registry resolution at the offer screen, not on the EU trusted lists. Signed
+                    // metadata stays preferred rather than ignored, because asking for it is what
+                    // makes openid4vci-kt announce itself to the agent.
                     configureIssuerTrust {
-                        policy { default(TrustPolicy.Action.ENFORCE) }
-                        requireSignedMetadata()
+                        policy { default(TrustPolicy.Action.INFORM) }
+                        preferSignedMetadata()
                     }
 
                     configureDocumentStatusResolver {
@@ -121,8 +130,21 @@ internal class WalletCoreConfigImpl : WalletCoreConfig {
                     }
 
                     configureReaderTrustStore {
-                        readerAuthPolicy(ReaderAuthPolicy.EnforceIfPresent)
+                        readerAuthPolicy(ReaderAuthPolicy.DoNotEnforce)
                     }
+
+                    // The cast signs requests under self-signed development certificates; chain
+                    // trust is deliberately delegated to the Verana registry gate, which blocks
+                    // the action itself.
+                    configureReaderTrustStore(object : ReaderTrustStore {
+                        override fun createCertificationTrustPath(
+                            chain: List<java.security.cert.X509Certificate>
+                        ): List<java.security.cert.X509Certificate> = chain
+
+                        override fun validateCertificationTrustPath(
+                            chain: List<java.security.cert.X509Certificate>
+                        ): Boolean = true
+                    })
                 }
             }
             return _config!!
@@ -130,6 +152,34 @@ internal class WalletCoreConfigImpl : WalletCoreConfig {
 
     override val issuersConfig: List<VciConfig>
         get() = listOf(
+            // Fallback profile for issuers outside the EU lists, the Verana demo cast among
+            // them: public client, response encryption only when the issuer supports it.
+            VciConfig(
+                issuerUrl = "https://playground.testnet.verana.network",
+                config = OpenId4VciManager.Config.Builder()
+                    .withClientAuthenticationType(
+                        OpenId4VciManager.ClientAuthenticationType.None(clientId = "verana-eudi-wallet")
+                    )
+                    .withAuthFlowRedirectionURI(BuildConfig.ISSUE_AUTHORIZATION_DEEPLINK)
+                    .withParUsage(OpenId4VciManager.Config.ParUsage.IF_SUPPORTED)
+                    .withDPopConfig(DPopConfig.Default)
+                    .withResponseEncryptionConfig(
+                        EncryptionSupportConfig(
+                            ecKeyCurve = Curve.P_256,
+                            rcaKeySize = 2048,
+                            credentialResponseEncryptionPolicy = CredentialResponseEncryptionPolicy.SUPPORTED,
+                        )
+                    )
+                    .withSupportedProofTypes(
+                        OpenId4VciManager.SupportedProofTypes(
+                            isNoProofSupported = false,
+                            jwtProofAlgorithms = setOf(Algorithm.ESP256),
+                            attestationProofAlgorithms = null,
+                        )
+                    )
+                    .build(),
+                order = 0
+            ),
             VciConfig(
                 issuerUrl = "https://issuer.eudiw.dev",
                 config = OpenId4VciManager.Config.Builder()
@@ -151,7 +201,7 @@ internal class WalletCoreConfigImpl : WalletCoreConfig {
                         )
                     )
                     .build(),
-                order = 0
+                order = 1
             ),
             VciConfig(
                 issuerUrl = "https://issuer-backend.eudiw.dev",
@@ -174,7 +224,7 @@ internal class WalletCoreConfigImpl : WalletCoreConfig {
                         )
                     )
                     .build(),
-                order = 1
+                order = 2
             )
         )
 

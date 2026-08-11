@@ -26,6 +26,9 @@ import eu.europa.ec.commonfeature.config.OfferCodeUiConfig
 import eu.europa.ec.commonfeature.config.OfferUiConfig
 import eu.europa.ec.commonfeature.config.PresentationMode
 import eu.europa.ec.commonfeature.config.RequestUriConfig
+import eu.europa.ec.commonfeature.util.toCardUi
+import eu.europa.ec.corelogic.controller.VeranaTrustController
+import eu.europa.ec.corelogic.controller.VeranaTrustState
 import eu.europa.ec.eudi.wallet.document.DocumentId
 import eu.europa.ec.issuancefeature.di.getOrCreateCredentialOfferScope
 import eu.europa.ec.issuancefeature.di.getOrNullCredentialOfferScope
@@ -52,6 +55,7 @@ import eu.europa.ec.uilogic.navigation.helper.generateComposableArguments
 import eu.europa.ec.uilogic.navigation.helper.generateComposableNavigationLink
 import eu.europa.ec.uilogic.navigation.helper.hasDeepLink
 import eu.europa.ec.uilogic.serializer.UiSerializer
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.koin.core.annotation.InjectedParam
 import org.koin.core.annotation.KoinViewModel
@@ -69,6 +73,7 @@ data class State(
     val documents: List<ListItemDataUi> = emptyList(),
     val noDocument: Boolean = false,
     val txCodeLength: Int? = null,
+    val veranaTrust: VeranaTrustState? = null,
 
     val isBottomSheetOpen: Boolean = false,
     val bottomSheetClosingInProgress: Boolean = false,
@@ -128,9 +133,13 @@ sealed class DocumentOfferBottomSheetContent {
 class DocumentOfferViewModel(
     private val resourceProvider: ResourceProvider,
     private val uiSerializer: UiSerializer,
+    private val veranaTrustController: VeranaTrustController,
     @InjectedParam private val offerSerializedConfig: String,
     documentOfferInteractor: DocumentOfferInteractor? = null
 ) : MviViewModel<Event, State, Effect>() {
+
+    private var veranaTrustJob: Job? = null
+    private var veranaCredentialName: String? = null
 
     private var _documentOfferInteractor: DocumentOfferInteractor? = documentOfferInteractor
 
@@ -176,6 +185,10 @@ class DocumentOfferViewModel(
             }
 
             is Event.StickyButtonPressed -> {
+                if (viewState.value.veranaTrust?.allowAction == false) {
+                    setEffect { Effect.ShowBottomSheet }
+                    return
+                }
                 issueDocuments(
                     context = event.context,
                     offerUri = viewState.value.offerUiConfig.offerUri,
@@ -306,14 +319,22 @@ class DocumentOfferViewModel(
                                 isInitialised = true,
                                 noDocument = false,
                                 txCodeLength = response.txCodeLength,
+                                veranaTrust = VeranaTrustState.resolving,
                                 headerConfig = headerConfig.copy(
                                     relyingPartyData = getHeaderConfigIssuerData(
                                         issuerName = response.issuerName,
                                         issuerLogo = response.issuerLogo,
-                                    )
+                                    ),
+                                    veranaTrustCard = VeranaTrustState.resolving.toCardUi(credentialName = veranaCredentialName),
                                 ),
                             )
                         }
+
+                        veranaCredentialName = response.documents.firstOrNull()?.title
+                        collectVeranaTrust(
+                            issuerUrl = response.veranaIssuerUrl,
+                            vct = response.veranaVct,
+                        )
 
                         handleDeepLink(deepLink)
                     }
@@ -335,6 +356,34 @@ class DocumentOfferViewModel(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+
+    private fun collectVeranaTrust(issuerUrl: String?, vct: String?) {
+        veranaTrustJob?.cancel()
+        if (issuerUrl == null) {
+            val unverified = VeranaTrustState.unverified()
+            setState {
+                copy(
+                    veranaTrust = unverified,
+                    headerConfig = headerConfig.copy(
+                        veranaTrustCard = unverified.toCardUi(credentialName = veranaCredentialName),
+                    ),
+                )
+            }
+            return
+        }
+        veranaTrustJob = viewModelScope.launch {
+            veranaTrustController.issuerTrust(issuerUrl, vct).collect { trust ->
+                setState {
+                    copy(
+                        veranaTrust = trust,
+                        headerConfig = headerConfig.copy(
+                            veranaTrustCard = trust.toCardUi(credentialName = veranaCredentialName),
+                        ),
+                    )
                 }
             }
         }

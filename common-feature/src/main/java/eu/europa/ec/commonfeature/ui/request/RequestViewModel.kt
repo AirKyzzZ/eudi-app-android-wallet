@@ -18,6 +18,7 @@ package eu.europa.ec.commonfeature.ui.request
 
 import eu.europa.ec.commonfeature.ui.request.model.RequestDataUi
 import eu.europa.ec.commonfeature.ui.request.model.RequestDocumentItemUi
+import eu.europa.ec.corelogic.controller.VeranaTrustState
 import eu.europa.ec.uilogic.component.AppIcons
 import eu.europa.ec.uilogic.component.ListItemTrailingContentDataUi
 import eu.europa.ec.uilogic.component.content.ContentErrorConfig
@@ -48,9 +49,12 @@ data class State(
     val claimsAreSelectable: Boolean = true,
 
     val intentAction: IntentAction? = null,
+
+    // Null on flows that carry no Verana verdict (proximity, DC-API); those stay ungated.
+    val veranaTrust: VeranaTrustState? = null,
 ) : ViewState {
     val allowShare: Boolean
-        get() = if (claimsAreSelectable) {
+        get() = veranaTrust?.allowAction != false && if (claimsAreSelectable) {
             requestDataUi.selectedDocuments.anyClaimChecked()
         } else {
             requestDataUi.selectedDocuments.isNotEmpty()
@@ -147,7 +151,11 @@ abstract class RequestViewModel : MviViewModel<Event, State, Effect>() {
             }
 
             is Event.StickyButtonPressed -> {
-                doNavigation(NavigationType.PushRoute(getNextScreen()))
+                if (viewState.value.veranaTrust?.allowAction == false) {
+                    showBottomSheet(sheetContent = RequestBottomSheetContent.VERIFIER_NOT_TRUSTED)
+                } else {
+                    doNavigation(NavigationType.PushRoute(getNextScreen()))
+                }
             }
 
             is Event.UserIdentificationClicked -> {

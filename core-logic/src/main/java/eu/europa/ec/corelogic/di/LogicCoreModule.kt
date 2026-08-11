@@ -23,6 +23,8 @@ import eu.europa.ec.businesslogic.di.LogicBusinessModule
 import eu.europa.ec.businesslogic.provider.UuidProvider
 import eu.europa.ec.corelogic.config.WalletCoreConfig
 import eu.europa.ec.corelogic.config.WalletCoreConfigImpl
+import eu.europa.ec.corelogic.controller.VeranaTrustController
+import eu.europa.ec.corelogic.controller.VeranaTrustControllerImpl
 import eu.europa.ec.corelogic.controller.WalletCoreDocumentsController
 import eu.europa.ec.corelogic.controller.WalletCoreDocumentsControllerImpl
 import eu.europa.ec.corelogic.controller.WalletCoreLogController
@@ -34,6 +36,7 @@ import eu.europa.ec.corelogic.controller.WalletCoreTransactionLogControllerImpl
 import eu.europa.ec.corelogic.provider.WalletCoreAttestationProvider
 import eu.europa.ec.corelogic.provider.WalletCoreAttestationProviderImpl
 import eu.europa.ec.eudi.wallet.EudiWallet
+import eu.europa.ec.networklogic.repository.VeranaTrustRepository
 import eu.europa.ec.networklogic.repository.WalletAttestationRepository
 import eu.europa.ec.resourceslogic.provider.ResourceProvider
 import eu.europa.ec.storagelogic.dao.BookmarkDao
@@ -76,6 +79,11 @@ fun provideEudiWallet(
 
 @Single
 fun provideWalletCoreConfig(): WalletCoreConfig = WalletCoreConfigImpl()
+
+@Single
+fun provideVeranaTrustController(
+    veranaTrustRepository: VeranaTrustRepository
+): VeranaTrustController = VeranaTrustControllerImpl(veranaTrustRepository)
 
 @Factory
 fun provideWalletCoreLogController(logController: LogController): WalletCoreLogController =
@@ -125,10 +133,12 @@ fun provideWalletCoreDocumentsController(
 fun provideWalletCorePresentationController(
     resourceProvider: ResourceProvider,
     prefKeys: PrefKeys,
+    veranaTrustController: VeranaTrustController,
 ): WalletCorePresentationController =
     WalletCorePresentationControllerImpl(
         resourceProvider = resourceProvider,
         prefKeys = prefKeys,
+        veranaTrustController = veranaTrustController,
     )
 
 /**

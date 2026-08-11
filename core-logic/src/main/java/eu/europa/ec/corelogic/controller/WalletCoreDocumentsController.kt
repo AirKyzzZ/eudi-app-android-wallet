@@ -589,6 +589,7 @@ class WalletCoreDocumentsControllerImpl(
             manager.resolveDocumentOffer(offerUri) { result ->
                 when (result) {
                     is OfferResult.Failure -> {
+                        android.util.Log.w("VeranaTrust", "offer resolution failed", result.cause)
                         trySendBlocking(
                             if (result.cause.indicatesUntrustedIssuer()) {
                                 ResolveDocumentOfferPartialState.IssuerNotTrusted

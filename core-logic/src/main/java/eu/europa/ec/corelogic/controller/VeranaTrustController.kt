@@ -250,7 +250,7 @@ class VeranaTrustControllerImpl(
             ?: repository.fetchSchemas()?.firstOrNull { it.vprId == vct }?.id
             ?: return null
 
-        val permissions = repository.fetchPermissions() ?: return null
+        val permissions = repository.fetchPermissionsForDid(did, role, schemaId) ?: return null
         return findAccreditation(permissions, did, schemaId, role)
     }
 

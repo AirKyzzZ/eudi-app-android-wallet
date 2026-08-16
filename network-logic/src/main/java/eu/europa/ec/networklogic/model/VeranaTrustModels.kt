@@ -70,7 +70,7 @@ data class VeranaAccreditation(
     val reason: String? = null,
 )
 
-enum class VeranaRole { ISSUER, VERIFIER }
+enum class VeranaRole(val vprTypeCode: Int) { ISSUER(1), VERIFIER(2) }
 
 data class SignedIssuerMetadata(
     val kid: String,

@@ -18,6 +18,7 @@ package eu.europa.ec.networklogic.repository
 
 import eu.europa.ec.networklogic.model.SignedIssuerMetadata
 import eu.europa.ec.networklogic.model.VeranaPermission
+import eu.europa.ec.networklogic.model.VeranaRole
 import eu.europa.ec.networklogic.model.VeranaSchema
 import eu.europa.ec.networklogic.model.VeranaTrustResolution
 import eu.europa.ec.networklogic.util.VeranaJws
@@ -51,6 +52,12 @@ interface VeranaTrustRepository {
     suspend fun fetchSchemas(): List<VeranaSchema>?
 
     suspend fun fetchPermissions(): List<VeranaPermission>?
+
+    suspend fun fetchPermissionsForDid(
+        did: String,
+        role: VeranaRole,
+        schemaId: String,
+    ): List<VeranaPermission>?
 
     suspend fun resolveSchemaIdFromVct(vct: String): String?
 
@@ -137,6 +144,28 @@ class VeranaTrustRepositoryImpl(
         val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
         val permissions = body["permissions"]?.jsonArray ?: return@runCatching null
         if (permissions.size >= RESPONSE_MAX_SIZE) return@runCatching null
+
+        permissions.mapNotNull { entry ->
+            runCatching { json.decodeFromJsonElement(VeranaPermission.serializer(), entry) }.getOrNull()
+        }.filter { it.id != null && it.schemaId != null && it.type != null }
+    }.getOrNull()
+
+    override suspend fun fetchPermissionsForDid(
+        did: String,
+        role: VeranaRole,
+        schemaId: String,
+    ): List<VeranaPermission>? = runCatching {
+        val response = httpClient.get(
+            "${apiUrl.trimEnd('/')}/verana/perm/v1/find_with_did" +
+                "?did=${did.encodeURLParameter()}" +
+                "&type=${role.vprTypeCode}" +
+                "&schema_id=${schemaId.encodeURLParameter()}"
+        )
+        // 404 means the schema is not on chain, a determinate zero rather than a failure, so it denies.
+        if (response.status == HttpStatusCode.NotFound) return@runCatching emptyList<VeranaPermission>()
+        if (!response.status.isSuccessValue()) return@runCatching null
+        val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
+        val permissions = body["permissions"]?.jsonArray ?: return@runCatching null
 
         permissions.mapNotNull { entry ->
             runCatching { json.decodeFromJsonElement(VeranaPermission.serializer(), entry) }.getOrNull()

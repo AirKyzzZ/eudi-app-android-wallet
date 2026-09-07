@@ -49,6 +49,7 @@ import eu.europa.ec.corelogic.model.ClaimType
 import eu.europa.ec.resourceslogic.R
 import eu.europa.ec.resourceslogic.theme.values.warning
 import eu.europa.ec.uilogic.component.AppIcons
+import eu.europa.ec.uilogic.component.ClickableArea
 import eu.europa.ec.uilogic.component.ErrorInfo
 import eu.europa.ec.uilogic.component.ListItemDataUi
 import eu.europa.ec.uilogic.component.ListItemMainContentDataUi
@@ -269,6 +270,9 @@ private fun DisplayRequestItems(
                 verticalArrangement = Arrangement.spacedBy(SPACING_MEDIUM.dp)
             ) {
                 requestDocuments.forEachIndexed { index, requestDocument ->
+                    val hasAlternatives =
+                        requestDocument.headerUi.header.trailingContentData is ListItemTrailingContentDataUi.RadioButton
+
                     WrapExpandableListItem(
                         modifier = Modifier
                             .applyTestTag(TestTag.RequestScreen.requestedDocument(index = index))
@@ -281,10 +285,20 @@ private fun DisplayRequestItems(
                         onExpandedChange = { expandedItem ->
                             onEventSend(Event.ExpandOrCollapseRequestDocumentItem(itemId = expandedItem.itemId))
                         },
+                        onHeaderClick = if (hasAlternatives) {
+                            { header -> onEventSend(Event.RequestDocumentSelected(itemId = header.itemId)) }
+                        } else {
+                            null
+                        },
                         isExpanded = requestDocument.headerUi.isExpanded,
                         throttleClicks = false,
                         hideSensitiveContent = false,
                         collapsedMainContentVerticalPadding = SPACING_MEDIUM.dp,
+                        collapsedClickableAreas = if (hasAlternatives) {
+                            listOf(ClickableArea.ENTIRE_ROW, ClickableArea.TRAILING_CONTENT)
+                        } else {
+                            null
+                        },
                         expandedMainContentVerticalPadding = SPACING_MEDIUM.dp,
                     )
                 }
@@ -357,7 +371,8 @@ private fun ContentPreview() {
                                         type = ClaimType.MsoMdoc(namespace = "namespace")
                                     )
                                 ),
-                            )
+                            ),
+                            requestedPaths = emptySet(),
                         ),
                         headerUi = ExpandableListItemUi.NestedListItem(
                             header = ListItemDataUi(

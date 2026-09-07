@@ -17,10 +17,12 @@
 package eu.europa.ec.commonfeature.ui.request.model
 
 import eu.europa.ec.corelogic.model.ClaimDomain
+import eu.europa.ec.corelogic.model.ClaimPathDomain
 import eu.europa.ec.eudi.wallet.document.DocumentId
 import eu.europa.ec.eudi.wallet.document.format.DocumentFormat
 import eu.europa.ec.eudi.wallet.document.format.MsoMdocFormat
 import eu.europa.ec.eudi.wallet.document.format.SdJwtVcFormat
+import eu.europa.ec.uilogic.component.ListItemTrailingContentDataUi
 import eu.europa.ec.uilogic.component.wrap.ExpandableListItemUi
 
 sealed class DomainDocumentFormat {
@@ -40,11 +42,20 @@ sealed class DomainDocumentFormat {
 data class RequestDocumentItemUi(
     val domainPayload: DocumentPayloadDomain,
     val headerUi: ExpandableListItemUi.NestedListItem,
-)
+) {
+    // Only credentials competing for the same query carry a radio; everything else is always disclosed.
+    val isSelected: Boolean
+        get() = when (val trailingContent = headerUi.header.trailingContentData) {
+            is ListItemTrailingContentDataUi.RadioButton -> trailingContent.radioButtonData.isSelected
+            else -> true
+        }
+}
 
 data class DocumentPayloadDomain(
     val docName: String,
     val docId: DocumentId,
     val domainDocFormat: DomainDocumentFormat,
     val docClaimsDomain: List<ClaimDomain>,
+    // Proxy for the query id wallet-core never exposes: all credentials matched by one query share this set.
+    val requestedPaths: Set<ClaimPathDomain>,
 )

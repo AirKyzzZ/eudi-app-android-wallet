@@ -69,6 +69,7 @@ sealed class Event : ViewEvent {
 
     data class UserIdentificationClicked(val itemId: String) : Event()
     data class ExpandOrCollapseRequestDocumentItem(val itemId: String) : Event()
+    data class RequestDocumentSelected(val itemId: String) : Event()
 
     sealed class BottomSheet : Event() {
         data class UpdateBottomSheetState(val isOpen: Boolean) : BottomSheet()
@@ -181,6 +182,10 @@ abstract class RequestViewModel : MviViewModel<Event, State, Effect>() {
 
             is Event.ExpandOrCollapseRequestDocumentItem -> {
                 expandOrCollapseRequestDocumentItem(id = event.itemId)
+            }
+
+            is Event.RequestDocumentSelected -> {
+                selectRequestDocument(id = event.itemId)
             }
 
             is Event.BottomSheet.UpdateBottomSheetState -> {
@@ -298,15 +303,20 @@ abstract class RequestViewModel : MviViewModel<Event, State, Effect>() {
         val updatedItems = currentItems.map { requestDocument ->
             val newHeader = if (requestDocument.headerUi.header.itemId == id) {
                 val newIsExpanded = !requestDocument.headerUi.isExpanded
-                val newCollapsed = requestDocument.headerUi.header.copy(
-                    trailingContentData = ListItemTrailingContentDataUi.Icon(
-                        iconData = if (newIsExpanded) {
-                            AppIcons.KeyboardArrowUp
-                        } else {
-                            AppIcons.KeyboardArrowDown
-                        }
+                val trailingContent = requestDocument.headerUi.header.trailingContentData
+                val newCollapsed = if (trailingContent is ListItemTrailingContentDataUi.Icon) {
+                    requestDocument.headerUi.header.copy(
+                        trailingContentData = trailingContent.copy(
+                            iconData = if (newIsExpanded) {
+                                AppIcons.KeyboardArrowUp
+                            } else {
+                                AppIcons.KeyboardArrowDown
+                            }
+                        )
                     )
-                )
+                } else {
+                    requestDocument.headerUi.header
+                }
 
                 requestDocument.headerUi.copy(
                     header = newCollapsed,
@@ -324,6 +334,43 @@ abstract class RequestViewModel : MviViewModel<Event, State, Effect>() {
         }
 
         updateData(updatedItems, viewState.value.allowShare)
+    }
+
+    private fun selectRequestDocument(id: String) {
+        val currentItems = viewState.value.items
+        val selectedDocument = currentItems.firstOrNull { it.headerUi.header.itemId == id } ?: return
+
+        val updatedItems = currentItems.map { requestDocument ->
+            val trailingContent = requestDocument.headerUi.header.trailingContentData
+            val isAlternative = requestDocument.domainPayload.requestedPaths ==
+                    selectedDocument.domainPayload.requestedPaths
+
+            if (!isAlternative || trailingContent !is ListItemTrailingContentDataUi.RadioButton) {
+                return@map requestDocument
+            }
+
+            val isSelected = requestDocument.headerUi.header.itemId == id
+            val isExpanded = when {
+                !isSelected -> false
+                requestDocument.isSelected -> !requestDocument.headerUi.isExpanded
+                else -> true
+            }
+
+            requestDocument.copy(
+                headerUi = requestDocument.headerUi.copy(
+                    header = requestDocument.headerUi.header.copy(
+                        trailingContentData = trailingContent.copy(
+                            radioButtonData = trailingContent.radioButtonData.copy(
+                                isSelected = isSelected
+                            )
+                        )
+                    ),
+                    isExpanded = isExpanded
+                )
+            )
+        }
+
+        updateData(updatedItems)
     }
 
     private fun updateUserIdentificationItem(id: String, siblingIds: List<String>) {
@@ -372,7 +419,7 @@ abstract class RequestViewModel : MviViewModel<Event, State, Effect>() {
         requestDocuments: List<RequestDocumentItemUi>,
     ): Boolean {
         val hasAtLeastOneFieldSelected: Boolean = requestDocuments.any { requestDocument ->
-            requestDocument.headerUi.nestedItems.hasAnySingleSelected()
+            requestDocument.isSelected && requestDocument.headerUi.nestedItems.hasAnySingleSelected()
         }
         return hasAtLeastOneFieldSelected
     }

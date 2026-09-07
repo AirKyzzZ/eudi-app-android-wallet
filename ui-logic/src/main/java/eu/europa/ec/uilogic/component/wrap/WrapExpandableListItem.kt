@@ -62,6 +62,7 @@ fun WrapExpandableListItem(
     hideSensitiveContent: Boolean = false,
     isExpanded: Boolean,
     onExpandedChange: ((item: ListItemDataUi) -> Unit)?,
+    onHeaderClick: ((item: ListItemDataUi) -> Unit)? = null,
     throttleClicks: Boolean = true,
     collapsedMainContentVerticalPadding: Dp? = null,
     collapsedClickableAreas: List<ClickableArea>? = null,
@@ -82,7 +83,7 @@ fun WrapExpandableListItem(
             WrapListItem(
                 modifier = Modifier.fillMaxWidth(),
                 item = header,
-                onItemClick = onExpandedChange,
+                onItemClick = onHeaderClick ?: onExpandedChange,
                 throttleClicks = throttleClicks,
                 hideSensitiveContent = false,
                 mainContentVerticalPadding = collapsedMainContentVerticalPadding,

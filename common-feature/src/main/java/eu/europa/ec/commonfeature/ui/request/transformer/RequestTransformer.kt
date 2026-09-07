@@ -39,6 +39,7 @@ import eu.europa.ec.uilogic.component.ListItemDataUi
 import eu.europa.ec.uilogic.component.ListItemMainContentDataUi
 import eu.europa.ec.uilogic.component.ListItemTrailingContentDataUi
 import eu.europa.ec.uilogic.component.wrap.ExpandableListItemUi
+import eu.europa.ec.uilogic.component.wrap.RadioButtonDataUi
 
 object RequestTransformer {
 
@@ -85,7 +86,8 @@ object RequestTransformer {
                         domainDocFormat = DomainDocumentFormat.getFormat(
                             format = storageDocument.format,
                         ),
-                        docClaimsDomain = domainClaims
+                        docClaimsDomain = domainClaims,
+                        requestedPaths = requestedItemsPaths.toSet(),
                     )
                 )
             }
@@ -99,7 +101,11 @@ object RequestTransformer {
         documentsDomain: List<DocumentPayloadDomain>,
         resourceProvider: ResourceProvider,
     ): List<RequestDocumentItemUi> {
+        val alternativesByRequest = documentsDomain.groupBy { it.requestedPaths }
+
         return documentsDomain.map {
+            val alternatives = alternativesByRequest.getValue(it.requestedPaths)
+
             RequestDocumentItemUi(
                 domainPayload = it,
                 headerUi = ExpandableListItemUi.NestedListItem(
@@ -107,9 +113,17 @@ object RequestTransformer {
                         itemId = it.docId,
                         mainContentData = ListItemMainContentDataUi.Text(text = it.docName),
                         supportingText = resourceProvider.getString(R.string.request_collapsed_supporting_text),
-                        trailingContentData = ListItemTrailingContentDataUi.Icon(
-                            iconData = AppIcons.KeyboardArrowDown
-                        )
+                        trailingContentData = if (alternatives.size > 1) {
+                            ListItemTrailingContentDataUi.RadioButton(
+                                radioButtonData = RadioButtonDataUi(
+                                    isSelected = alternatives.first().docId == it.docId
+                                )
+                            )
+                        } else {
+                            ListItemTrailingContentDataUi.Icon(
+                                iconData = AppIcons.KeyboardArrowDown
+                            )
+                        }
                     ),
                     nestedItems = it.toSelectiveExpandableListItems(),
                     isExpanded = false,
@@ -133,7 +147,7 @@ object RequestTransformer {
                 is ExpandableListItemUi.NestedListItem -> nestedItems.flatMap { it.collectSingles() }
             }
 
-        val groupedByDocument = items.map { document ->
+        val groupedByDocument = items.filter { it.isSelected }.map { document ->
             document.domainPayload to document.headerUi.nestedItems.flatMap { uiItem ->
                 uiItem.collectSingles()
                     .distinctBy { listItemDataUi ->

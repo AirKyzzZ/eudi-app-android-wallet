@@ -48,7 +48,7 @@ import kotlinx.serialization.Serializable
 // The strings are deliberately not localized: the same evaluation must read identically in
 // every wallet that renders it.
 
-enum class VeranaVerdictUi { RESOLVING, TRUSTED, PARTIAL, UNTRUSTED, UNVERIFIED }
+enum class VeranaVerdictUi { RESOLVING, TRUSTED, UNTRUSTED, UNVERIFIED }
 
 @Serializable
 data class VeranaTrustCardUi(
@@ -85,7 +85,6 @@ private val Verana = Color(0xFF7C3AED)
 private val VeranaVerdictUi.color: Color
     get() = when (this) {
         VeranaVerdictUi.TRUSTED -> Green
-        VeranaVerdictUi.PARTIAL -> Amber
         VeranaVerdictUi.UNTRUSTED -> Red
         VeranaVerdictUi.RESOLVING, VeranaVerdictUi.UNVERIFIED -> Grey
     }
@@ -93,7 +92,6 @@ private val VeranaVerdictUi.color: Color
 private val VeranaVerdictUi.pillLabel: String
     get() = when (this) {
         VeranaVerdictUi.TRUSTED -> "TRUSTED"
-        VeranaVerdictUi.PARTIAL -> "PARTIAL"
         VeranaVerdictUi.UNTRUSTED -> "UNTRUSTED"
         VeranaVerdictUi.UNVERIFIED -> "COULD NOT VERIFY"
         VeranaVerdictUi.RESOLVING -> "CHECKING…"

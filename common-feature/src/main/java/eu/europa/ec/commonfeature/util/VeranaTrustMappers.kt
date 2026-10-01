@@ -28,7 +28,6 @@ fun VeranaTrustState.toCardUi(
     verdict = when (verdict) {
         VeranaVerdict.RESOLVING -> VeranaVerdictUi.RESOLVING
         VeranaVerdict.TRUSTED -> VeranaVerdictUi.TRUSTED
-        VeranaVerdict.PARTIAL -> VeranaVerdictUi.PARTIAL
         VeranaVerdict.UNTRUSTED -> VeranaVerdictUi.UNTRUSTED
         VeranaVerdict.UNVERIFIED -> VeranaVerdictUi.UNVERIFIED
     },

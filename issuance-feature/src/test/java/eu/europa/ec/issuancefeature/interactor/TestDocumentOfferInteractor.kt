@@ -25,6 +25,7 @@ import eu.europa.ec.commonfeature.config.SuccessUIConfig
 import eu.europa.ec.commonfeature.interactor.DeviceAuthenticationInteractor
 import eu.europa.ec.corelogic.controller.IssueDocumentsPartialState
 import eu.europa.ec.corelogic.controller.ResolveDocumentOfferPartialState
+import eu.europa.ec.corelogic.controller.VeranaTrustController
 import eu.europa.ec.corelogic.controller.WalletCoreDocumentsController
 import eu.europa.ec.corelogic.extension.getIssuerName
 import eu.europa.ec.corelogic.model.FormatType
@@ -83,6 +84,7 @@ import eu.europa.ec.uilogic.component.ThemeColorKey
 import eu.europa.ec.uilogic.component.utils.PERCENTAGE_25
 import eu.europa.ec.uilogic.serializer.UiSerializer
 import junit.framework.TestCase.assertEquals
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -118,6 +120,9 @@ class TestDocumentOfferInteractor {
     private lateinit var configLogic: ConfigLogic
 
     @Mock
+    private lateinit var veranaTrustController: VeranaTrustController
+
+    @Mock
     private lateinit var resultHandler: DeviceAuthenticationResult
 
     @Mock
@@ -139,13 +144,15 @@ class TestDocumentOfferInteractor {
             deviceAuthenticationInteractor = deviceAuthenticationInteractor,
             resourceProvider = resourceProvider,
             uiSerializer = uiSerializer,
-            configLogic = configLogic
+            configLogic = configLogic,
+            veranaTrustController = veranaTrustController
         )
         biometricCrypto = BiometricCrypto(cryptoObject = null)
 
         whenever(resourceProvider.genericErrorMessage()).thenReturn(mockedGenericErrorMessage)
         whenever(resourceProvider.getLocale()).thenReturn(mockedDefaultLocale)
         whenever(configLogic.forcePidActivation).thenReturn(true)
+        whenever(veranaTrustController.latestIssuerState).thenReturn(MutableStateFlow(null))
     }
 
     @After
@@ -371,6 +378,7 @@ class TestDocumentOfferInteractor {
                     txCodeLength = mockedTxCodeFourDigits,
                     issuerLogo = null,
                     issuerRegistration = mockedVerifiedIssuerRegistration,
+                    veranaIssuerUrl = mockHttpUrl,
                 )
                 // Then
                 assertEquals(expectedResult, awaitItem())
@@ -429,6 +437,7 @@ class TestDocumentOfferInteractor {
                     txCodeLength = mockedOffer.txCodeSpec?.length,
                     issuerLogo = null,
                     issuerRegistration = mockedVerifiedIssuerRegistration,
+                    veranaIssuerUrl = mockHttpUrl,
                 )
 
                 // Then

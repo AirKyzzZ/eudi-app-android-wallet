@@ -10,7 +10,10 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.content.TextContent
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withTimeoutOrNull
 
 data class VeranaHttpResponse(
@@ -36,16 +39,21 @@ class VeranaHttpClient(
         }
     }
 
-    private suspend fun request(url: String, block: suspend () -> HttpResponse): VeranaHttpResponse? = try {
-        withTimeoutOrNull(REQUEST_TIMEOUT_MILLIS) {
-            val response = block()
-            VeranaHttpResponse(status = response.status.value, body = response.bodyAsText())
-        }.also { if (it == null) logController.w(TAG) { "Verana request to $url timed out" } }
-    } catch (error: CancellationException) {
-        throw error
-    } catch (error: Throwable) {
-        logController.w(TAG) { "Verana request to $url failed: $error" }
-        null
+    // Cancelling an in-flight request on the ktor Android engine disconnects it from the cancelling thread, Main here, and crashes the app.
+    private val requests = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private suspend fun request(url: String, block: suspend () -> HttpResponse): VeranaHttpResponse? {
+        val call = requests.async {
+            try {
+                val response = block()
+                VeranaHttpResponse(status = response.status.value, body = response.bodyAsText())
+            } catch (error: Throwable) {
+                logController.w(TAG) { "Verana request to $url failed: $error" }
+                null
+            }
+        }
+        return withTimeoutOrNull(REQUEST_TIMEOUT_MILLIS) { call.await() }
+            .also { if (it == null && !call.isCompleted) logController.w(TAG) { "Verana request to $url timed out" } }
     }
 
     private companion object {

@@ -51,7 +51,7 @@ import eu.europa.ec.uilogic.component.content.ContentScreen
 import eu.europa.ec.uilogic.component.content.ImePaddingConfig
 import eu.europa.ec.uilogic.component.preview.PreviewTheme
 import eu.europa.ec.uilogic.component.preview.ThemeModePreviews
-import eu.europa.ec.uilogic.component.utils.OneTimeLaunchedEffect
+import eu.europa.ec.uilogic.component.utils.OncePerViewModelEffect
 import eu.europa.ec.uilogic.component.utils.SPACING_LARGE
 import eu.europa.ec.uilogic.component.utils.SPACING_SMALL
 import eu.europa.ec.uilogic.component.wrap.BottomSheetTextDataUi
@@ -114,15 +114,12 @@ fun PinScreen(
         if (isBottomSheetOpen) {
             WrapModalBottomSheet(
                 onDismissRequest = {
-                    viewModel.setEvent(
-                        Event.BottomSheet.UpdateBottomSheetState(
-                            isOpen = false
-                        )
-                    )
+                    viewModel.setEvent(Event.BottomSheet.Cancel.PrimaryButtonPressed)
                 },
                 sheetState = bottomSheetState
             ) {
                 SheetContent(
+                    sheetContent = state.sheetContent,
                     onEventSent = {
                         viewModel.setEvent(it)
                     }
@@ -131,7 +128,7 @@ fun PinScreen(
         }
     }
 
-    OneTimeLaunchedEffect {
+    OncePerViewModelEffect(viewModel) {
         viewModel.setEvent(Event.Init)
     }
 }
@@ -242,6 +239,9 @@ private fun Content(
                     }.invokeOnCompletion {
                         if (!modalBottomSheetState.isVisible) {
                             onEventSend(Event.BottomSheet.UpdateBottomSheetState(isOpen = false))
+                            onEventSend(Event.BottomSheet.FinishedClosing)
+                        } else {
+                            onEventSend(Event.BottomSheet.UpdateBottomSheetState(isOpen = true))
                         }
                     }
                 }
@@ -256,18 +256,23 @@ private fun Content(
 
 @Composable
 private fun SheetContent(
+    sheetContent: PinBottomSheetContent,
     onEventSent: (event: Event) -> Unit
 ) {
-    DialogBottomSheet(
-        textData = BottomSheetTextDataUi(
-            title = stringResource(id = R.string.quick_pin_bottom_sheet_cancel_title),
-            message = stringResource(id = R.string.quick_pin_bottom_sheet_cancel_subtitle),
-            positiveButtonText = stringResource(id = R.string.quick_pin_bottom_sheet_cancel_primary_button_text),
-            negativeButtonText = stringResource(id = R.string.quick_pin_bottom_sheet_cancel_secondary_button_text),
-        ),
-        onPositiveClick = { onEventSent(Event.BottomSheet.Cancel.PrimaryButtonPressed) },
-        onNegativeClick = { onEventSent(Event.BottomSheet.Cancel.SecondaryButtonPressed) }
-    )
+    when (sheetContent) {
+        is PinBottomSheetContent.CancelConfirmation -> {
+            DialogBottomSheet(
+                textData = BottomSheetTextDataUi(
+                    title = stringResource(id = R.string.quick_pin_bottom_sheet_cancel_title),
+                    message = stringResource(id = R.string.quick_pin_bottom_sheet_cancel_subtitle),
+                    positiveButtonText = stringResource(id = R.string.quick_pin_bottom_sheet_cancel_primary_button_text),
+                    negativeButtonText = stringResource(id = R.string.quick_pin_bottom_sheet_cancel_secondary_button_text),
+                ),
+                onPositiveClick = { onEventSent(Event.BottomSheet.Cancel.PrimaryButtonPressed) },
+                onNegativeClick = { onEventSent(Event.BottomSheet.Cancel.SecondaryButtonPressed) }
+            )
+        }
+    }
 }
 
 @Composable
@@ -318,6 +323,7 @@ private fun PinScreenEmptyPreview() {
 private fun SheetContentCancelPreview() {
     PreviewTheme {
         SheetContent(
+            sheetContent = PinBottomSheetContent.CancelConfirmation,
             onEventSent = {}
         )
     }

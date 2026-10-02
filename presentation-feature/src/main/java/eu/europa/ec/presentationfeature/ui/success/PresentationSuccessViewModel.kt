@@ -69,6 +69,7 @@ class PresentationSuccessViewModel(
                         setState {
                             copy(
                                 headerConfig = response.headerConfig,
+                                bannerText = response.bannerText,
                                 items = response.documentsUi,
                                 isLoading = false,
                             )
@@ -84,7 +85,6 @@ class PresentationSuccessViewModel(
     }
 
     override fun onCleared() {
-        super.onCleared()
         interactor.stopPresentation()
         getOrNullKoinScope(presentationScopeId)?.close()
     }

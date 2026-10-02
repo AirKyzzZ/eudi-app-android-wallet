@@ -30,8 +30,6 @@ import eu.europa.ec.uilogic.component.AppIconAndTextDataUi
 import eu.europa.ec.uilogic.component.AppIcons
 import eu.europa.ec.uilogic.component.RelyingParty
 import eu.europa.ec.uilogic.component.RelyingPartyDataUi
-import eu.europa.ec.uilogic.component.VeranaTrustCard
-import eu.europa.ec.uilogic.component.VeranaTrustCardUi
 import eu.europa.ec.uilogic.component.preview.PreviewTheme
 import eu.europa.ec.uilogic.component.preview.TextLengthPreviewProvider
 import eu.europa.ec.uilogic.component.preview.ThemeModePreviews
@@ -64,7 +62,6 @@ data class ContentHeaderConfig(
     val mainText: String? = null,
     val mainTextConfig: TextConfig? = null,
     val relyingPartyData: RelyingPartyDataUi? = null,
-    val veranaTrustCard: VeranaTrustCardUi? = null,
 )
 
 /**
@@ -136,15 +133,6 @@ fun ContentHeader(
                     relyingPartyData = safeRelyingPartyData,
                 )
             }
-
-            veranaTrustCard?.let { safeTrustCard ->
-                VeranaTrustCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = SPACING_SMALL.dp),
-                    data = safeTrustCard,
-                )
-            }
         }
     }
 }
@@ -163,8 +151,10 @@ private fun ContentHeaderPreview(
                 description = "Description: $text",
                 mainText = "Title: $text",
                 relyingPartyData = RelyingPartyDataUi(
+                    logo = null,
                     isVerified = true,
                     name = "Relying Party Name: $text",
+                    uniqueId = null,
                     description = "Relying Party Description: $text",
                 )
             )

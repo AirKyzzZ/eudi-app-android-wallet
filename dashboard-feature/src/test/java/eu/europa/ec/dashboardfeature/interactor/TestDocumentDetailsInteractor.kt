@@ -32,6 +32,7 @@ import eu.europa.ec.corelogic.model.ClaimDomain
 import eu.europa.ec.corelogic.model.ClaimPathDomain
 import eu.europa.ec.corelogic.model.ClaimType
 import eu.europa.ec.corelogic.model.DocumentIdentifier
+import eu.europa.ec.corelogic.model.UntrustedIssuerReasonDomain
 import eu.europa.ec.dashboardfeature.ui.documents.detail.model.DocumentDetailsDomain
 import eu.europa.ec.dashboardfeature.ui.documents.model.DocumentCredentialsInfoUi
 import eu.europa.ec.dashboardfeature.util.mockedBasicMdlDomain
@@ -78,6 +79,7 @@ import org.mockito.ArgumentMatchers
 import org.mockito.Mock
 import org.mockito.MockitoAnnotations
 import org.mockito.kotlin.any
+import org.mockito.kotlin.inOrder
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
@@ -1154,18 +1156,22 @@ class TestDocumentDetailsInteractor {
                     allowAuthorizationFallback = true,
                 )
             ).thenReturn(
-                IssueDocumentsPartialState.DeferredSuccess(deferredDocuments = emptyMap()).toFlow()
+                IssueDocumentsPartialState.DeferredSuccess(
+                    deferredDocuments = emptyMap(),
+                ).toFlow()
             )
 
             // When
-            interactor.reIssueDocument(documentId = mockedPidId, issuerId = mockedReIssueIssuerId)
-                .runFlowTest {
-                    // Then
-                    assertEquals(
-                        DocumentDetailsInteractorIssuancePartialState.Success,
-                        awaitItem()
-                    )
-                }
+            interactor.reIssueDocument(
+                documentId = mockedPidId,
+                issuerId = mockedReIssueIssuerId,
+            ).runFlowTest {
+                // Then
+                assertEquals(
+                    DocumentDetailsInteractorIssuancePartialState.Success,
+                    awaitItem()
+                )
+            }
         }
     }
 
@@ -1185,21 +1191,23 @@ class TestDocumentDetailsInteractor {
             )
 
             // When
-            interactor.reIssueDocument(documentId = mockedPidId, issuerId = mockedReIssueIssuerId)
-                .runFlowTest {
-                    // Then
-                    assertEquals(
-                        DocumentDetailsInteractorIssuancePartialState.Failure(
-                            errorMessage = mockedPlainFailureMessage
-                        ),
-                        awaitItem()
-                    )
-                }
+            interactor.reIssueDocument(
+                documentId = mockedPidId,
+                issuerId = mockedReIssueIssuerId,
+            ).runFlowTest {
+                // Then
+                assertEquals(
+                    DocumentDetailsInteractorIssuancePartialState.Failure(
+                        errorMessage = mockedPlainFailureMessage
+                    ),
+                    awaitItem()
+                )
+            }
         }
     }
 
     @Test
-    fun `Given controller emits IssuerNotTrusted, When reIssueDocument is called, Then IssuerNotTrusted is emitted`() {
+    fun `Given controller emits IssuerNotTrusted for the access certificate, When reIssueDocument is called, Then IssuerNotTrusted with that reason is emitted`() {
         coroutineRule.runTest {
             // Given
             whenever(
@@ -1209,18 +1217,24 @@ class TestDocumentDetailsInteractor {
                     allowAuthorizationFallback = true,
                 )
             ).thenReturn(
-                IssueDocumentsPartialState.IssuerNotTrusted.toFlow()
+                IssueDocumentsPartialState.IssuerNotTrusted(
+                    reason = UntrustedIssuerReasonDomain.ACCESS_CERTIFICATE
+                ).toFlow()
             )
 
             // When
-            interactor.reIssueDocument(documentId = mockedPidId, issuerId = mockedReIssueIssuerId)
-                .runFlowTest {
-                    // Then
-                    assertEquals(
-                        DocumentDetailsInteractorIssuancePartialState.IssuerNotTrusted,
-                        awaitItem()
-                    )
-                }
+            interactor.reIssueDocument(
+                documentId = mockedPidId,
+                issuerId = mockedReIssueIssuerId,
+            ).runFlowTest {
+                // Then
+                assertEquals(
+                    DocumentDetailsInteractorIssuancePartialState.IssuerNotTrusted(
+                        reason = UntrustedIssuerReasonDomain.ACCESS_CERTIFICATE
+                    ),
+                    awaitItem()
+                )
+            }
         }
     }
 
@@ -1235,18 +1249,22 @@ class TestDocumentDetailsInteractor {
                     allowAuthorizationFallback = true,
                 )
             ).thenReturn(
-                IssueDocumentsPartialState.Success(documentIds = listOf(mockedPidId)).toFlow()
+                IssueDocumentsPartialState.Success(
+                    documentIds = listOf(mockedPidId),
+                ).toFlow()
             )
 
             // When
-            interactor.reIssueDocument(documentId = mockedPidId, issuerId = mockedReIssueIssuerId)
-                .runFlowTest {
-                    // Then
-                    assertEquals(
-                        DocumentDetailsInteractorIssuancePartialState.Success,
-                        awaitItem()
-                    )
-                }
+            interactor.reIssueDocument(
+                documentId = mockedPidId,
+                issuerId = mockedReIssueIssuerId,
+            ).runFlowTest {
+                // Then
+                assertEquals(
+                    DocumentDetailsInteractorIssuancePartialState.Success,
+                    awaitItem()
+                )
+            }
         }
     }
 
@@ -1268,14 +1286,16 @@ class TestDocumentDetailsInteractor {
             )
 
             // When
-            interactor.reIssueDocument(documentId = mockedPidId, issuerId = mockedReIssueIssuerId)
-                .runFlowTest {
-                    // Then
-                    assertEquals(
-                        DocumentDetailsInteractorIssuancePartialState.Success,
-                        awaitItem()
-                    )
-                }
+            interactor.reIssueDocument(
+                documentId = mockedPidId,
+                issuerId = mockedReIssueIssuerId,
+            ).runFlowTest {
+                // Then
+                assertEquals(
+                    DocumentDetailsInteractorIssuancePartialState.Success,
+                    awaitItem()
+                )
+            }
         }
     }
 
@@ -1299,14 +1319,16 @@ class TestDocumentDetailsInteractor {
             )
 
             // When
-            interactor.reIssueDocument(documentId = mockedPidId, issuerId = mockedReIssueIssuerId)
-                .runFlowTest {
-                    // Then
-                    assertEquals(
-                        DocumentDetailsInteractorIssuancePartialState.Success,
-                        awaitItem()
-                    )
-                }
+            interactor.reIssueDocument(
+                documentId = mockedPidId,
+                issuerId = mockedReIssueIssuerId,
+            ).runFlowTest {
+                // Then
+                assertEquals(
+                    DocumentDetailsInteractorIssuancePartialState.Success,
+                    awaitItem()
+                )
+            }
         }
     }
 
@@ -1330,17 +1352,19 @@ class TestDocumentDetailsInteractor {
             )
 
             // When
-            interactor.reIssueDocument(documentId = mockedPidId, issuerId = mockedReIssueIssuerId)
-                .runFlowTest {
-                    // Then
-                    assertEquals(
-                        DocumentDetailsInteractorIssuancePartialState.UserAuthRequired(
-                            crypto = crypto,
-                            resultHandler = resultHandler,
-                        ),
-                        awaitItem()
-                    )
-                }
+            interactor.reIssueDocument(
+                documentId = mockedPidId,
+                issuerId = mockedReIssueIssuerId,
+            ).runFlowTest {
+                // Then
+                assertEquals(
+                    DocumentDetailsInteractorIssuancePartialState.UserAuthRequired(
+                        crypto = crypto,
+                        resultHandler = resultHandler,
+                    ),
+                    awaitItem()
+                )
+            }
         }
     }
 
@@ -1357,16 +1381,18 @@ class TestDocumentDetailsInteractor {
             ).thenThrow(mockedExceptionWithMessage)
 
             // When
-            interactor.reIssueDocument(documentId = mockedPidId, issuerId = mockedReIssueIssuerId)
-                .runFlowTest {
-                    // Then
-                    assertEquals(
-                        DocumentDetailsInteractorIssuancePartialState.Failure(
-                            errorMessage = mockedExceptionWithMessage.localizedMessage!!
-                        ),
-                        awaitItem()
-                    )
-                }
+            interactor.reIssueDocument(
+                documentId = mockedPidId,
+                issuerId = mockedReIssueIssuerId,
+            ).runFlowTest {
+                // Then
+                assertEquals(
+                    DocumentDetailsInteractorIssuancePartialState.Failure(
+                        errorMessage = mockedExceptionWithMessage.localizedMessage!!
+                    ),
+                    awaitItem()
+                )
+            }
         }
     }
 
@@ -1383,16 +1409,52 @@ class TestDocumentDetailsInteractor {
             ).thenThrow(mockedExceptionWithNoMessage)
 
             // When
-            interactor.reIssueDocument(documentId = mockedPidId, issuerId = mockedReIssueIssuerId)
-                .runFlowTest {
-                    // Then
-                    assertEquals(
-                        DocumentDetailsInteractorIssuancePartialState.Failure(
-                            errorMessage = mockedGenericErrorMessage
-                        ),
-                        awaitItem()
-                    )
-                }
+            interactor.reIssueDocument(
+                documentId = mockedPidId,
+                issuerId = mockedReIssueIssuerId,
+            ).runFlowTest {
+                // Then
+                assertEquals(
+                    DocumentDetailsInteractorIssuancePartialState.Failure(
+                        errorMessage = mockedGenericErrorMessage
+                    ),
+                    awaitItem()
+                )
+            }
+        }
+    }
+
+    // The pre-flight refuses before anything starts, so the original document is intact
+    // when this arrives; the reason travels through unchanged.
+    @Test
+    fun `Given controller emits IssuerNotTrusted for the registration certificate, When reIssueDocument is called, Then IssuerNotTrusted with that reason is emitted`() {
+        coroutineRule.runTest {
+            // Given
+            whenever(
+                walletCoreDocumentsController.reIssueDocument(
+                    documentId = mockedPidId,
+                    issuerId = mockedReIssueIssuerId,
+                    allowAuthorizationFallback = true,
+                )
+            ).thenReturn(
+                IssueDocumentsPartialState.IssuerNotTrusted(
+                    reason = UntrustedIssuerReasonDomain.REGISTRATION_CERTIFICATE
+                ).toFlow()
+            )
+
+            // When
+            interactor.reIssueDocument(
+                documentId = mockedPidId,
+                issuerId = mockedReIssueIssuerId,
+            ).runFlowTest {
+                // Then
+                assertEquals(
+                    DocumentDetailsInteractorIssuancePartialState.IssuerNotTrusted(
+                        reason = UntrustedIssuerReasonDomain.REGISTRATION_CERTIFICATE
+                    ),
+                    awaitItem()
+                )
+            }
         }
     }
     //endregion
@@ -1405,7 +1467,7 @@ class TestDocumentDetailsInteractor {
         val context = mockContext
         val crypto = BiometricCrypto(cryptoObject = null)
         val resultHandler = DeviceAuthenticationResult()
-        whenever(deviceAuthenticationInteractor.getBiometricsAvailability())
+        whenever(deviceAuthenticationInteractor.getBiometricsAvailability(crypto))
             .thenReturn(BiometricsAvailability.CanAuthenticate)
 
         // When
@@ -1427,11 +1489,12 @@ class TestDocumentDetailsInteractor {
     }
 
     @Test
-    fun `Given biometrics availability is NonEnrolled, When handleUserAuth is called, Then launchBiometricSystemScreen is invoked`() {
+    fun `Given biometrics are not enrolled, Then end the request before opening enrollment`() {
         // Given
         val crypto = BiometricCrypto(cryptoObject = null)
-        val resultHandler = DeviceAuthenticationResult()
-        whenever(deviceAuthenticationInteractor.getBiometricsAvailability())
+        val onError = mock<() -> Unit>()
+        val resultHandler = DeviceAuthenticationResult(onAuthenticationError = onError)
+        whenever(deviceAuthenticationInteractor.getBiometricsAvailability(crypto))
             .thenReturn(BiometricsAvailability.NonEnrolled)
 
         // When
@@ -1443,17 +1506,20 @@ class TestDocumentDetailsInteractor {
         )
 
         // Then
-        verify(deviceAuthenticationInteractor, times(1))
-            .launchBiometricSystemScreen()
+        inOrder(onError, deviceAuthenticationInteractor) {
+            verify(onError).invoke()
+            verify(deviceAuthenticationInteractor).launchBiometricSystemScreen(crypto)
+            verifyNoMoreInteractions()
+        }
     }
 
     @Test
-    fun `Given biometrics availability is Failure, When handleUserAuth is called, Then resultHandler#onAuthenticationFailure is invoked`() {
+    fun `Given biometrics availability is Failure, When handleUserAuth is called, Then resultHandler#onAuthenticationError is invoked`() {
         // Given
-        val onFailure = mock<() -> Unit>()
-        val resultHandler = DeviceAuthenticationResult(onAuthenticationFailure = onFailure)
+        val onError = mock<() -> Unit>()
+        val resultHandler = DeviceAuthenticationResult(onAuthenticationError = onError)
         val crypto = BiometricCrypto(cryptoObject = null)
-        whenever(deviceAuthenticationInteractor.getBiometricsAvailability())
+        whenever(deviceAuthenticationInteractor.getBiometricsAvailability(crypto))
             .thenReturn(BiometricsAvailability.Failure(errorMessage = mockedPlainFailureMessage))
 
         // When
@@ -1465,7 +1531,7 @@ class TestDocumentDetailsInteractor {
         )
 
         // Then
-        verify(onFailure).invoke()
+        verify(onError).invoke()
     }
     //endregion
 

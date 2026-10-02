@@ -51,6 +51,7 @@ import eu.europa.ec.resourceslogic.theme.values.success
 import eu.europa.ec.uilogic.component.AppIcons
 import eu.europa.ec.uilogic.component.ListItemDataUi
 import eu.europa.ec.uilogic.component.ListItemMainContentDataUi
+import eu.europa.ec.uilogic.component.ListItemSupportingContentDataUi
 import eu.europa.ec.uilogic.component.ListItemTrailingContentDataUi
 import eu.europa.ec.uilogic.component.SectionTitle
 import eu.europa.ec.uilogic.component.content.ContentScreen
@@ -59,7 +60,7 @@ import eu.europa.ec.uilogic.component.content.ScreenNavigateAction
 import eu.europa.ec.uilogic.component.preview.PreviewTheme
 import eu.europa.ec.uilogic.component.preview.TextLengthPreviewProvider
 import eu.europa.ec.uilogic.component.preview.ThemeModePreviews
-import eu.europa.ec.uilogic.component.utils.OneTimeLaunchedEffect
+import eu.europa.ec.uilogic.component.utils.OncePerViewModelEffect
 import eu.europa.ec.uilogic.component.utils.SPACING_LARGE
 import eu.europa.ec.uilogic.component.utils.SPACING_MEDIUM
 import eu.europa.ec.uilogic.component.utils.SPACING_SMALL
@@ -101,7 +102,7 @@ internal fun TransactionDetailsScreen(
         )
     }
 
-    OneTimeLaunchedEffect {
+    OncePerViewModelEffect(viewModel) {
         viewModel.setEvent(Event.Init)
     }
 }
@@ -423,7 +424,9 @@ private fun ContentPreview() {
             header = ListItemDataUi(
                 itemId = "0",
                 mainContentData = ListItemMainContentDataUi.Text(text = "Digital ID"),
-                supportingText = "View Details",
+                supportingContentData = ListItemSupportingContentDataUi.Text(
+                    text = "View Details",
+                ),
                 trailingContentData = ListItemTrailingContentDataUi.Icon(
                     iconData = AppIcons.KeyboardArrowDown
                 ),

@@ -20,6 +20,7 @@ import com.nimbusds.jose.jwk.Curve
 import org.multipaz.crypto.Algorithm
 import eu.europa.ec.corelogic.BuildConfig
 import eu.europa.ec.corelogic.model.DocumentIdentifier
+import eu.europa.ec.corelogic.provider.RegistrationCheckProvider
 import eu.europa.ec.eudi.etsi119602.datamodel.Uri
 import eu.europa.ec.eudi.etsi1196x2.consultation.AttestationClassifications
 import eu.europa.ec.eudi.etsi1196x2.consultation.AttestationIdentifier
@@ -36,16 +37,25 @@ import eu.europa.ec.eudi.wallet.dcapi.DCAPIProtocol
 import eu.europa.ec.eudi.wallet.document.CreateDocumentSettings.CredentialPolicy
 import eu.europa.ec.eudi.wallet.issue.openid4vci.OpenId4VciManager
 import eu.europa.ec.eudi.wallet.issue.openid4vci.dpop.DPopConfig
+import eu.europa.ec.eudi.wallet.registration.issuer.IssuerRegistrationPolicy
+import eu.europa.ec.eudi.wallet.registration.relyingparty.WrpRegistrationPolicy
 import eu.europa.ec.eudi.wallet.transfer.openId4vp.ClientIdScheme
 import eu.europa.ec.eudi.wallet.transfer.openId4vp.Format
 import eu.europa.ec.eudi.wallet.trust.TrustPolicy
+import kotlinx.coroutines.runBlocking
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
-internal class WalletCoreConfigImpl : WalletCoreConfig {
+internal class WalletCoreConfigImpl(
+    private val registrationCheckProvider: RegistrationCheckProvider,
+) : WalletCoreConfig {
 
     private var _config: EudiWalletConfig? = null
+
+    override val isRegistrationCheckEnabled: Boolean by lazy {
+        runBlocking { registrationCheckProvider.isEnabled() }
+    }
 
     override val config: EudiWalletConfig
         get() {
@@ -89,6 +99,7 @@ internal class WalletCoreConfigImpl : WalletCoreConfig {
                             SupportedLists(
                                 pidProviders = Uri("https://trustedlist.serviceproviders.eudiw.dev/LOTE/json/PIDProviders.jwt"),
                                 wrpacProviders = Uri("https://trustedlist.serviceproviders.eudiw.dev/LOTE/json/WRPACProviders.jwt"),
+                                wrprcProviders = Uri("https://trustedlist.serviceproviders.eudiw.dev/LOTE/json/WRPRCProviders.jwt"),
                                 pubEaaProviders = Uri("https://trustedlist.serviceproviders.eudiw.dev/LOTE/json/PubEAAProviders.jwt"),
                             )
                         )
@@ -119,6 +130,13 @@ internal class WalletCoreConfigImpl : WalletCoreConfig {
                     configureIssuerTrust {
                         policy { default(TrustPolicy.Action.INFORM) }
                         preferSignedMetadata()
+                        configureIssuerRegistrationPolicy(
+                            if (isRegistrationCheckEnabled) {
+                                IssuerRegistrationPolicy.Enabled
+                            } else {
+                                IssuerRegistrationPolicy.Disabled
+                            }
+                        )
                     }
 
                     configureDocumentStatusResolver {
@@ -133,9 +151,7 @@ internal class WalletCoreConfigImpl : WalletCoreConfig {
                         readerAuthPolicy(ReaderAuthPolicy.DoNotEnforce)
                     }
 
-                    // The cast signs requests under self-signed development certificates; chain
-                    // trust is deliberately delegated to the Verana registry gate, which blocks
-                    // the action itself.
+                    // the demo cast signs under self-signed certs; the Verana gate blocks the action instead
                     configureReaderTrustStore(object : ReaderTrustStore {
                         override fun createCertificationTrustPath(
                             chain: List<java.security.cert.X509Certificate>
@@ -145,6 +161,14 @@ internal class WalletCoreConfigImpl : WalletCoreConfig {
                             chain: List<java.security.cert.X509Certificate>
                         ): Boolean = true
                     })
+
+                    configureWrpRegistrationPolicy(
+                        if (isRegistrationCheckEnabled) {
+                            WrpRegistrationPolicy.Enabled
+                        } else {
+                            WrpRegistrationPolicy.Disabled
+                        }
+                    )
                 }
             }
             return _config!!

@@ -37,10 +37,11 @@ import eu.europa.ec.dashboardfeature.ui.documents.list.model.DocumentUi
 import eu.europa.ec.eudi.wallet.document.DocumentId
 import eu.europa.ec.resourceslogic.R
 import eu.europa.ec.resourceslogic.provider.ResourceProvider
-import eu.europa.ec.resourceslogic.theme.values.ThemeColors
 import eu.europa.ec.uilogic.component.AppIcons
+import eu.europa.ec.uilogic.component.ListItemSupportingContentDataUi
 import eu.europa.ec.uilogic.component.ListItemTrailingContentDataUi
 import eu.europa.ec.uilogic.component.ModalOptionUi
+import eu.europa.ec.uilogic.component.ThemeColorKey
 import eu.europa.ec.uilogic.component.content.ContentErrorConfig
 import eu.europa.ec.uilogic.component.wrap.ExpandableListItemUi
 import eu.europa.ec.uilogic.extension.collapsedExpansionState
@@ -61,6 +62,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.core.annotation.KoinViewModel
+import kotlin.time.Duration.Companion.milliseconds
 
 data class State(
     val isLoading: Boolean,
@@ -389,10 +391,13 @@ class DocumentsViewModel(
                 data.copy(
                     documentIssuanceState = DocumentIssuanceStateUi.Failed,
                     uiData = data.uiData.copy(
-                        supportingText = resourceProvider.getString(R.string.dashboard_document_deferred_failed),
+                        supportingContentData = ListItemSupportingContentDataUi.Text(
+                            text = resourceProvider.getString(R.string.dashboard_document_deferred_failed),
+                            textColorKey = ThemeColorKey.Error,
+                        ),
                         trailingContentData = ListItemTrailingContentDataUi.Icon(
                             iconData = AppIcons.ErrorFilled,
-                            tint = ThemeColors.error
+                            tint = ThemeColorKey.Error
                         )
                     )
                 )
@@ -421,7 +426,7 @@ class DocumentsViewModel(
                 return@launch
             }
 
-            delay(5000L)
+            delay(5000L.milliseconds)
 
             interactor.tryIssuingDeferredDocumentsFlow(deferredDocs).collect { response ->
                 when (response) {

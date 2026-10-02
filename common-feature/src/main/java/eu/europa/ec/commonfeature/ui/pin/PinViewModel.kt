@@ -48,6 +48,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.core.annotation.InjectedParam
 import org.koin.core.annotation.KoinViewModel
+import kotlin.time.Duration.Companion.milliseconds
 
 enum class PinValidationState {
     ENTER,
@@ -65,6 +66,8 @@ data class State(
     val resetPin: Boolean = false,
     val pinState: PinValidationState,
     val isBottomSheetOpen: Boolean = false,
+    val bottomSheetClosingInProgress: Boolean = false,
+    val sheetContent: PinBottomSheetContent = PinBottomSheetContent.CancelConfirmation,
     val quickPinSize: Int = 6,
     val isLockedOut: Boolean = false,
     val lockoutMessage: String? = null
@@ -94,6 +97,7 @@ sealed class Event : ViewEvent {
     data object Finish : Event()
     sealed class BottomSheet : Event() {
         data class UpdateBottomSheetState(val isOpen: Boolean) : BottomSheet()
+        data object FinishedClosing : BottomSheet()
 
         sealed class Cancel : BottomSheet() {
             data object PrimaryButtonPressed : Cancel()
@@ -113,6 +117,10 @@ sealed class Effect : ViewSideEffect {
 
     data object ShowBottomSheet : Effect()
     data object CloseBottomSheet : Effect()
+}
+
+sealed class PinBottomSheetContent {
+    data object CancelConfirmation : PinBottomSheetContent()
 }
 
 @KoinViewModel
@@ -201,12 +209,24 @@ class PinViewModel(
             }
 
             is Event.CancelPressed -> {
-                showBottomSheet()
+                if (viewState.value.bottomSheetClosingInProgress) return
+                showBottomSheet(sheetContent = PinBottomSheetContent.CancelConfirmation)
             }
 
             is Event.BottomSheet.UpdateBottomSheetState -> {
                 setState {
-                    copy(isBottomSheetOpen = event.isOpen)
+                    copy(
+                        isBottomSheetOpen = event.isOpen,
+                        bottomSheetClosingInProgress = if (event.isOpen) false
+                        else bottomSheetClosingInProgress,
+                    )
+                }
+            }
+
+            is Event.BottomSheet.FinishedClosing -> {
+                if (viewState.value.bottomSheetClosingInProgress) {
+                    setState { copy(bottomSheetClosingInProgress = false) }
+                    setEffect { Effect.Navigation.Pop }
                 }
             }
 
@@ -215,11 +235,10 @@ class PinViewModel(
             }
 
             is Event.BottomSheet.Cancel.SecondaryButtonPressed -> {
-                viewModelScope.launch {
+                if (!viewState.value.bottomSheetClosingInProgress) {
                     clearPendingPin()
+                    setState { copy(bottomSheetClosingInProgress = true) }
                     hideBottomSheet()
-                    artificialDelay(time = 200L)
-                    setEffect { Effect.Navigation.Pop }
                 }
             }
 
@@ -234,7 +253,6 @@ class PinViewModel(
         clearPendingPin()
         lockoutTickJob?.cancel()
         lockoutTickJob = null
-        super.onCleared()
     }
 
     private fun validatePin(currentPin: SecurePin) {
@@ -372,7 +390,7 @@ class PinViewModel(
         lockoutTickJob = viewModelScope.launch {
             var remaining = initialRemainingMs
             while (remaining > 0L) {
-                delay(1_000L)
+                delay(1_000L.milliseconds)
                 remaining -= 1_000L
                 if (remaining <= 0L) break
                 setState {
@@ -445,7 +463,7 @@ class PinViewModel(
      * @param time The duration of the delay in milliseconds. Defaults to 500ms.
      */
     private suspend fun artificialDelay(time: Long = 500L) {
-        delay(time)
+        delay(time.milliseconds)
     }
 
     private fun getNextScreenRoute(): String {
@@ -543,7 +561,10 @@ class PinViewModel(
         )
     }
 
-    private fun showBottomSheet() {
+    private fun showBottomSheet(sheetContent: PinBottomSheetContent) {
+        setState {
+            copy(sheetContent = sheetContent)
+        }
         setEffect {
             Effect.ShowBottomSheet
         }

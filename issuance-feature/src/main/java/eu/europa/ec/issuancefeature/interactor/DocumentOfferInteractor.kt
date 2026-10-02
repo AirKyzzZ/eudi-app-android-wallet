@@ -35,6 +35,8 @@ import eu.europa.ec.corelogic.extension.getIssuerLogo
 import eu.europa.ec.corelogic.extension.getIssuerName
 import eu.europa.ec.corelogic.extension.getName
 import eu.europa.ec.corelogic.model.DocumentIdentifier
+import eu.europa.ec.corelogic.model.IssuerRegistrationDomain
+import eu.europa.ec.corelogic.model.UntrustedIssuerReasonDomain
 import eu.europa.ec.eudi.openid4vci.TxCodeInputMode
 import eu.europa.ec.eudi.wallet.document.DocumentId
 import eu.europa.ec.eudi.wallet.document.format.SdJwtVcFormat
@@ -42,8 +44,8 @@ import eu.europa.ec.eudi.wallet.issue.openid4vci.Offer
 import eu.europa.ec.issuancefeature.ui.offer.model.DocumentOfferUi
 import eu.europa.ec.resourceslogic.R
 import eu.europa.ec.resourceslogic.provider.ResourceProvider
-import eu.europa.ec.resourceslogic.theme.values.ThemeColors
 import eu.europa.ec.uilogic.component.AppIcons
+import eu.europa.ec.uilogic.component.ThemeColorKey
 import eu.europa.ec.uilogic.component.utils.PERCENTAGE_25
 import eu.europa.ec.uilogic.config.ConfigNavigation
 import eu.europa.ec.uilogic.navigation.CommonScreens
@@ -61,18 +63,22 @@ sealed class ResolveDocumentOfferInteractorPartialState {
         val issuerName: String,
         val issuerLogo: URI?,
         val txCodeLength: Int?,
+        val issuerRegistration: IssuerRegistrationDomain,
         val veranaIssuerUrl: String? = null,
-        val veranaVct: String? = null
+        val veranaVct: String? = null,
     ) : ResolveDocumentOfferInteractorPartialState()
 
     data class NoDocument(
         val issuerName: String,
         val issuerLogo: URI?,
+        val issuerRegistration: IssuerRegistrationDomain,
     ) : ResolveDocumentOfferInteractorPartialState()
 
     data class Failure(val errorMessage: String) : ResolveDocumentOfferInteractorPartialState()
 
-    data object IssuerNotTrusted : ResolveDocumentOfferInteractorPartialState()
+    data class IssuerNotTrusted(
+        val reason: UntrustedIssuerReasonDomain,
+    ) : ResolveDocumentOfferInteractorPartialState()
 }
 
 sealed class IssueDocumentsInteractorPartialState {
@@ -90,7 +96,9 @@ sealed class IssueDocumentsInteractorPartialState {
 
     data class Failure(val errorMessage: String) : IssueDocumentsInteractorPartialState()
 
-    data object IssuerNotTrusted : IssueDocumentsInteractorPartialState()
+    data class IssuerNotTrusted(
+        val reason: UntrustedIssuerReasonDomain,
+    ) : IssueDocumentsInteractorPartialState()
 
     data class UserAuthRequired(
         val crypto: BiometricCrypto,
@@ -147,7 +155,9 @@ class DocumentOfferInteractorImpl(
                     }
 
                     is ResolveDocumentOfferPartialState.IssuerNotTrusted -> {
-                        ResolveDocumentOfferInteractorPartialState.IssuerNotTrusted
+                        ResolveDocumentOfferInteractorPartialState.IssuerNotTrusted(
+                            reason = response.reason
+                        )
                     }
 
                     is ResolveDocumentOfferPartialState.Success -> {
@@ -159,6 +169,7 @@ class DocumentOfferInteractorImpl(
                             ResolveDocumentOfferInteractorPartialState.NoDocument(
                                 issuerName = response.offer.getIssuerName(userLocale),
                                 issuerLogo = response.offer.getIssuerLogo(userLocale),
+                                issuerRegistration = response.issuerRegistration,
                             )
                         } else {
 
@@ -201,11 +212,12 @@ class DocumentOfferInteractorImpl(
                                     issuerName = response.offer.getIssuerName(userLocale),
                                     issuerLogo = response.offer.getIssuerLogo(userLocale),
                                     txCodeLength = response.offer.txCodeSpec?.length,
+                                    issuerRegistration = response.issuerRegistration,
                                     veranaIssuerUrl = response.offer.issuerMetadata
                                         .credentialIssuerIdentifier.value.value.toString(),
                                     veranaVct = response.offer.offeredDocuments.firstNotNullOfOrNull {
                                         (it.documentFormat as? SdJwtVcFormat)?.vct
-                                    }
+                                    },
                                 )
                             } else {
                                 ResolveDocumentOfferInteractorPartialState.Failure(
@@ -236,7 +248,11 @@ class DocumentOfferInteractorImpl(
             // The verdict gates the action, not just the dialog: a disabled button is not a
             // security boundary when another entry point can reach this flow.
             if (veranaTrustController.latestIssuerState.value?.allowAction == false) {
-                emit(IssueDocumentsInteractorPartialState.IssuerNotTrusted)
+                emit(
+                    IssueDocumentsInteractorPartialState.IssuerNotTrusted(
+                        reason = UntrustedIssuerReasonDomain.ACCESS_CERTIFICATE
+                    )
+                )
                 return@flow
             }
             credentialOffers[offerUri]?.let { offer ->
@@ -250,7 +266,9 @@ class DocumentOfferInteractorImpl(
                         }
 
                         is IssueDocumentsPartialState.IssuerNotTrusted -> {
-                            IssueDocumentsInteractorPartialState.IssuerNotTrusted
+                            IssueDocumentsInteractorPartialState.IssuerNotTrusted(
+                                reason = response.reason
+                            )
                         }
 
                         is IssueDocumentsPartialState.PartialSuccess -> {
@@ -310,7 +328,7 @@ class DocumentOfferInteractorImpl(
         notifyOnAuthenticationFailure: Boolean,
         resultHandler: DeviceAuthenticationResult
     ) {
-        when (deviceAuthenticationInteractor.getBiometricsAvailability()) {
+        when (deviceAuthenticationInteractor.getBiometricsAvailability(crypto)) {
             is BiometricsAvailability.CanAuthenticate -> {
                 deviceAuthenticationInteractor.authenticateWithBiometrics(
                     context = context,
@@ -321,11 +339,12 @@ class DocumentOfferInteractorImpl(
             }
 
             is BiometricsAvailability.NonEnrolled -> {
-                deviceAuthenticationInteractor.launchBiometricSystemScreen()
+                resultHandler.onAuthenticationError()
+                deviceAuthenticationInteractor.launchBiometricSystemScreen(crypto)
             }
 
             is BiometricsAvailability.Failure -> {
-                resultHandler.onAuthenticationFailure()
+                resultHandler.onAuthenticationError()
             }
         }
     }
@@ -353,13 +372,13 @@ class DocumentOfferInteractorImpl(
             first = SuccessUIConfig.TextElementsConfig(
                 text = resourceProvider.getString(R.string.issuance_document_offer_deferred_success_text),
                 description = description,
-                color = ThemeColors.pending
+                color = ThemeColorKey.Pending
             ),
             second = SuccessUIConfig.ImageConfig(
                 type = SuccessUIConfig.ImageConfig.Type.Drawable(
                     icon = AppIcons.InProgress,
                 ),
-                tint = ThemeColors.primary,
+                tint = ThemeColorKey.Primary,
                 screenPercentageSize = PERCENTAGE_25,
             ),
             third = resourceProvider.getString(R.string.issuance_document_offer_deferred_success_primary_button_text)

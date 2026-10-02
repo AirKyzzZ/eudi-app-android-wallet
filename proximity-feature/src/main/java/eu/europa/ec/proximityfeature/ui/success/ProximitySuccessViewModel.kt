@@ -66,6 +66,7 @@ class ProximitySuccessViewModel(
                         setState {
                             copy(
                                 headerConfig = response.headerConfig,
+                                bannerText = response.bannerText,
                                 items = response.documentsUi,
                                 isLoading = false,
                             )
@@ -81,7 +82,6 @@ class ProximitySuccessViewModel(
     }
 
     override fun onCleared() {
-        super.onCleared()
         interactor.stopPresentation()
         getOrNullKoinScope(presentationScopeId)?.close()
     }

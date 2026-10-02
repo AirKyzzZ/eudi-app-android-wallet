@@ -1,25 +1,11 @@
-/*
- * Copyright (c) 2026 European Commission
- *
- * Licensed under the EUPL, Version 1.2 or - as soon they will be approved by the European
- * Commission - subsequent versions of the EUPL (the "Licence"); You may not use this work
- * except in compliance with the Licence.
- *
- * You may obtain a copy of the Licence at:
- * https://joinup.ec.europa.eu/software/page/eupl
- *
- * Unless required by applicable law or agreed to in writing, software distributed under
- * the Licence is distributed on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF
- * ANY KIND, either express or implied. See the Licence for the specific language
- * governing permissions and limitations under the Licence.
- */
-
 package eu.europa.ec.networklogic.util
 
 import java.math.BigInteger
 import java.security.AlgorithmParameters
 import java.security.KeyFactory
 import java.security.Signature
+import java.security.cert.CertificateFactory
+import java.security.cert.X509Certificate
 import java.security.interfaces.ECPublicKey
 import java.security.spec.ECGenParameterSpec
 import java.security.spec.ECParameterSpec
@@ -37,6 +23,7 @@ object VeranaJws {
     data class DecodedJws(
         val kid: String?,
         val alg: String?,
+        val header: JsonObject,
         val payload: JsonObject,
         val signingInput: ByteArray,
         val signature: ByteArray,
@@ -51,17 +38,13 @@ object VeranaJws {
         DecodedJws(
             kid = header.string("kid"),
             alg = header.string("alg"),
+            header = header,
             payload = json.parseToJsonElement(parts[1].b64UrlDecode().decodeToString()).jsonObject,
             signingInput = "${parts[0]}.${parts[1]}".toByteArray(Charsets.US_ASCII),
             signature = parts[2].b64UrlDecode(),
         )
     }.getOrNull()
 
-    /**
-     * Verifies an ES256 JWS against the P-256 keys published in a DID document. The method whose
-     * id ends with the kid fragment is preferred; without a match every P-256 key is tried, since
-     * the parallel did:web document republishes the same methods under its own ids.
-     */
     fun verifyEs256(jws: DecodedJws, didDocument: JsonObject, kid: String): Boolean {
         if (jws.alg != "ES256") return false
         val fragment = kid.substringAfter('#', missingDelimiterValue = "")
@@ -70,9 +53,21 @@ object VeranaJws {
         val candidates = preferred.ifEmpty { keys }
         return candidates.any { (_, key) -> verify(jws, key) }
     }
+    
+    fun verifyX5c(jws: DecodedJws, cert: X509Certificate): Boolean {
+        if (jws.alg != "ES256") return false
+        val key = cert.publicKey as? ECPublicKey ?: return false
+        return verify(jws, key)
+    }
+
+    fun parseCertificate(base64: String): X509Certificate? = runCatching {
+        val bytes = Base64.getDecoder().decode(base64)
+        val cf = CertificateFactory.getInstance("X.509")
+        cf.generateCertificate(bytes.inputStream()) as X509Certificate
+    }.getOrNull()
 
     fun p256Keys(didDocument: JsonObject): List<Pair<String, ECPublicKey>> =
-        didDocument["verificationMethod"]
+        didDocument["assertionMethod"]
             ?.let { runCatching { it.jsonArray }.getOrNull() }
             ?.mapNotNull { method ->
                 runCatching {
@@ -101,7 +96,6 @@ object VeranaJws {
         verifier.verify(rawSignatureToDer(jws.signature))
     }.getOrDefault(false)
 
-    // JWS ES256 signatures are raw r||s; java.security verifies DER.
     private fun rawSignatureToDer(raw: ByteArray): ByteArray {
         require(raw.size == 64) { "ES256 signature must be 64 bytes" }
         val r = BigInteger(1, raw.copyOfRange(0, 32)).toByteArray()

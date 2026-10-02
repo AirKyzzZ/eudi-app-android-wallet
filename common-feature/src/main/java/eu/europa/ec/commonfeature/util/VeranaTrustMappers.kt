@@ -190,7 +190,7 @@ private fun withheldCopy(credential: VeranaTrustCredential?, tone: VeranaStepTon
 
 private fun VeranaTrustEvidence.verdictNote(): String = when (resolution.status) {
     VeranaTrustStatus.UNVERIFIED ->
-        "The Verana registry could not be reached. This counterparty is neither trusted nor untrusted."
+        "This counterparty could not be verified against the Verana registry. It is neither trusted nor untrusted."
 
     VeranaTrustStatus.TRUSTED -> "The Verana public registry trusts this service."
     VeranaTrustStatus.UNTRUSTED -> when (resolution.reason) {

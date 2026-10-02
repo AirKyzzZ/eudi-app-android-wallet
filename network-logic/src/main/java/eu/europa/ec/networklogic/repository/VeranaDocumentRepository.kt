@@ -38,7 +38,7 @@ class VeranaDocumentRepositoryImpl(
 
     override suspend fun fetchSignedIssuerMetadata(credentialIssuer: String): String? =
         signedIssuerMetadataUrls(credentialIssuer).firstNotNullOfOrNull { url ->
-            fetchOk(url, accept = APPLICATION_JWT)?.trim()?.takeIf { it.split('.').size == JWS_PARTS }
+            fetchOk(url, accept = APPLICATION_JWT)?.trim()?.takeIf(COMPACT_JWS::matches)
         }
 
     private suspend fun fetchOk(url: String, accept: ContentType = ContentType.Application.Json): String? =
@@ -46,7 +46,7 @@ class VeranaDocumentRepositoryImpl(
 
     private companion object {
         const val HTTP_OK = 200
-        const val JWS_PARTS = 3
+        val COMPACT_JWS = Regex("""^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$""")
         val APPLICATION_JWT = ContentType("application", "jwt")
     }
 }

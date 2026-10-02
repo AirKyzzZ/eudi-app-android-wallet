@@ -30,6 +30,10 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        maven {
+            url = uri(rootDir.resolve("verana-maven"))
+            content { includeVersionByRegex("eu\\.europa\\.ec\\.eudi", ".*", ".*-verana\\.\\d+") }
+        }
         google()
         mavenCentral()
         maven {

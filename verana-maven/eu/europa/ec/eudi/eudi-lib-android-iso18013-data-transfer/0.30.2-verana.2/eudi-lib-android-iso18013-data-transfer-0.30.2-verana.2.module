@@ -1,0 +1,206 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "eu.europa.ec.eudi",
+    "module": "eudi-lib-android-iso18013-data-transfer",
+    "version": "0.30.2-verana.2",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.3.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantMavenApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.2.21"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "eudi-lib-android-iso18013-data-transfer-0.30.2-verana.2.aar",
+          "url": "eudi-lib-android-iso18013-data-transfer-0.30.2-verana.2.aar",
+          "size": 186802,
+          "sha512": "67f59ff2621e9f0463429dfc6fb5f0047b18d95cb2e0a9f2defc759cfb88277715467597796573317d8eccf81b3412a84e50d28478360dd70f111a8b4bab9dff",
+          "sha256": "0a4cc4b5ef14a60812db8778ffd21eeb5107e876c26fd5272fa428aff365413e",
+          "sha1": "7da936f2ea4b90fc6978215fabbbe9e222c469ad",
+          "md5": "79a897e7dda3eeb6b9be4c68496e8f86"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantMavenRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-parcelize-runtime",
+          "version": {
+            "requires": "2.2.21"
+          }
+        },
+        {
+          "group": "eu.europa.ec.eudi",
+          "module": "eudi-lib-android-wallet-document-manager",
+          "version": {
+            "requires": "0.30.2-verana.2"
+          }
+        },
+        {
+          "group": "androidx.appcompat",
+          "module": "appcompat",
+          "version": {
+            "requires": "1.7.1"
+          }
+        },
+        {
+          "group": "org.multipaz",
+          "module": "multipaz-android",
+          "version": {
+            "requires": "0.99.0"
+          },
+          "excludes": [
+            {
+              "group": "org.bouncycastle",
+              "module": "*"
+            },
+            {
+              "group": "io.ktor",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "org.multipaz",
+          "module": "multipaz-android-legacy",
+          "version": {
+            "requires": "0.99.0"
+          },
+          "excludes": [
+            {
+              "group": "org.bouncycastle",
+              "module": "*"
+            },
+            {
+              "group": "io.ktor",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "org.jetbrains.kotlinx",
+          "module": "kotlinx-io-core",
+          "version": {
+            "requires": "0.7.0"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlinx",
+          "module": "kotlinx-io-bytestring",
+          "version": {
+            "requires": "0.7.0"
+          }
+        },
+        {
+          "group": "com.google.zxing",
+          "module": "core",
+          "version": {
+            "requires": "3.5.3"
+          }
+        },
+        {
+          "group": "org.bouncycastle",
+          "module": "bcprov-jdk18on",
+          "version": {
+            "requires": "1.78.1"
+          }
+        },
+        {
+          "group": "org.bouncycastle",
+          "module": "bcpkix-jdk18on",
+          "version": {
+            "requires": "1.78.1"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.2.21"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "eudi-lib-android-iso18013-data-transfer-0.30.2-verana.2.aar",
+          "url": "eudi-lib-android-iso18013-data-transfer-0.30.2-verana.2.aar",
+          "size": 186802,
+          "sha512": "67f59ff2621e9f0463429dfc6fb5f0047b18d95cb2e0a9f2defc759cfb88277715467597796573317d8eccf81b3412a84e50d28478360dd70f111a8b4bab9dff",
+          "sha256": "0a4cc4b5ef14a60812db8778ffd21eeb5107e876c26fd5272fa428aff365413e",
+          "sha1": "7da936f2ea4b90fc6978215fabbbe9e222c469ad",
+          "md5": "79a897e7dda3eeb6b9be4c68496e8f86"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantMavenSourcePublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "eudi-lib-android-iso18013-data-transfer-0.30.2-verana.2-sources.jar",
+          "url": "eudi-lib-android-iso18013-data-transfer-0.30.2-verana.2-sources.jar",
+          "size": 63140,
+          "sha512": "6e0dcc4be796178457627520b1b9d3fd3399308983f6d795ee3356b3e173493c4fcc93a4f06861b4273015a8d851570d4313d21f8dd5d09956c93d0bad8c3f25",
+          "sha256": "41b944a678e6be03c12f593db096cecd56c5fa9721a6d124a3721ed58677c804",
+          "sha1": "3b56d04c1c8df620644ad35a1829f0ea0b6b79e4",
+          "md5": "20b39feb711e065c4bc253b8f6577198"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantMavenJavaDocPublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "eudi-lib-android-iso18013-data-transfer-0.30.2-verana.2-javadoc.jar",
+          "url": "eudi-lib-android-iso18013-data-transfer-0.30.2-verana.2-javadoc.jar",
+          "size": 1157041,
+          "sha512": "e401047019e42ba4a62bdfd5eb778ffde7675f4ada4698134e2b7400b1d3aad655871ce98f74962ce529836ca43a84de91e590c5995509b763c2c40fa3d2a937",
+          "sha256": "1f4302ed6d2990ce20d03412b9aebb3aaa9a9d4e6a256db28be17362c8ee4765",
+          "sha1": "c97bcfda993f1695ff0940049eaed7c927f22610",
+          "md5": "8157e526af44c95ab04928ee79a688ed"
+        }
+      ]
+    }
+  ]
+}

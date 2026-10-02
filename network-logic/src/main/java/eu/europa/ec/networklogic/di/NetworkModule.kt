@@ -80,8 +80,17 @@ fun provideWalletAttestationRepository(httpClient: HttpClient): WalletAttestatio
 
 // No ContentNegotiation: it appends application/json to Accept, and signed issuer metadata needs application/jwt alone.
 @Single
-fun provideVeranaHttpClient(logController: LogController): VeranaHttpClient =
-    VeranaHttpClient(httpClient = HttpClient(Android), logController = logController)
+fun provideVeranaHttpClient(logController: LogController): VeranaHttpClient = VeranaHttpClient(
+    httpClient = HttpClient(Android) {
+        engine {
+            connectTimeout = VERANA_TIMEOUT_MILLIS
+            socketTimeout = VERANA_TIMEOUT_MILLIS
+        }
+    },
+    logController = logController,
+)
+
+private const val VERANA_TIMEOUT_MILLIS = 15_000
 
 @Single
 fun provideVeranaIndexerRepository(httpClient: VeranaHttpClient): VeranaIndexerRepository =

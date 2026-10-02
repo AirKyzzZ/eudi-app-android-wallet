@@ -155,7 +155,7 @@ internal class WalletCoreConfigImpl : WalletCoreConfig {
             // Fallback profile for issuers outside the EU lists, the Verana demo cast among
             // them: public client, response encryption only when the issuer supports it.
             VciConfig(
-                issuerUrl = "https://playground.testnet.verana.network",
+                issuerUrl = "https://playground.devnet.verana.network",
                 config = OpenId4VciManager.Config.Builder()
                     .withClientAuthenticationType(
                         OpenId4VciManager.ClientAuthenticationType.None(clientId = "verana-eudi-wallet")

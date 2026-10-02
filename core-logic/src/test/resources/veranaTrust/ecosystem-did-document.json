@@ -1,0 +1,95 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/did/v1",
+    "https://w3id.org/security/multikey/v1",
+    "https://w3id.org/security/suites/ed25519-2020/v1",
+    "https://w3id.org/security/suites/x25519-2019/v1",
+    "https://identity.foundation/linked-vp/contexts/v1"
+  ],
+  "id": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network",
+  "controller": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network",
+  "verificationMethod": [
+    {
+      "controller": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network",
+      "type": "Multikey",
+      "publicKeyMultibase": "z6MkpcfRDx9eag4Gq7cWFiaZBG8Aexg1r3H67y7WFDmWRFqk",
+      "id": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network#FDmWRFqk"
+    },
+    {
+      "controller": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network",
+      "id": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network#z6MkpgURAWmKM9pZehgnbZyPAyCF59cGdircgTDauNb9dGXF",
+      "publicKeyMultibase": "z6MkpgURAWmKM9pZehgnbZyPAyCF59cGdircgTDauNb9dGXF",
+      "type": "Ed25519VerificationKey2020"
+    },
+    {
+      "controller": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network",
+      "id": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network#key-agreement-1",
+      "publicKeyMultibase": "z6LSeD9T67uAhG82cAEAbwXBNEbxvHXw9D2pccNuWHFB9zde",
+      "type": "Multikey"
+    }
+  ],
+  "authentication": [
+    "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network#z6MkpgURAWmKM9pZehgnbZyPAyCF59cGdircgTDauNb9dGXF"
+  ],
+  "assertionMethod": [
+    "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network#z6MkpgURAWmKM9pZehgnbZyPAyCF59cGdircgTDauNb9dGXF"
+  ],
+  "keyAgreement": [
+    "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network#key-agreement-1"
+  ],
+  "capabilityDelegation": [],
+  "capabilityInvocation": [],
+  "service": [
+    {
+      "id": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network#did-communication",
+      "serviceEndpoint": "wss://playground-demo.playground.devnet.verana.network",
+      "type": "did-communication",
+      "priority": 0,
+      "recipientKeys": [
+        "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network#z6MkpgURAWmKM9pZehgnbZyPAyCF59cGdircgTDauNb9dGXF"
+      ],
+      "routingKeys": [],
+      "accept": [
+        "didcomm/aip2;env=rfc19"
+      ]
+    },
+    {
+      "id": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network#didcomm-messaging-0",
+      "serviceEndpoint": {
+        "uri": "wss://playground-demo.playground.devnet.verana.network",
+        "accept": [
+          "didcomm/v2"
+        ]
+      },
+      "type": "DIDCommMessaging"
+    },
+    {
+      "id": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network#files",
+      "serviceEndpoint": "https://playground-demo.playground.devnet.verana.network",
+      "type": "relativeRef"
+    },
+    {
+      "id": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network#vpr-schemas-8-vtjsc-vp",
+      "serviceEndpoint": "https://playground-demo.playground.devnet.verana.network/vt/schemas-8-vtjsc-vp.json",
+      "type": "LinkedVerifiablePresentation"
+    },
+    {
+      "id": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network#vpr-schemas-org-vtc-vp",
+      "serviceEndpoint": "https://playground-demo.playground.devnet.verana.network/vt/schemas-org-vtc-vp.json",
+      "type": "LinkedVerifiablePresentation"
+    },
+    {
+      "id": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network#vpr-schemas-service-vtc-vp",
+      "serviceEndpoint": "https://playground-demo.playground.devnet.verana.network/vt/ecs-service-vtc-vp.json",
+      "type": "LinkedVerifiablePresentation"
+    },
+    {
+      "id": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network#whois",
+      "serviceEndpoint": "https://playground-demo.playground.devnet.verana.network/vt/ecs-service-vtc-vp.json",
+      "type": "LinkedVerifiablePresentation"
+    }
+  ],
+  "alsoKnownAs": [
+    "did:web:playground-demo.playground.devnet.verana.network"
+  ]
+}

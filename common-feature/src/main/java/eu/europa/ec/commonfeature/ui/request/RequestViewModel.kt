@@ -22,7 +22,8 @@ import eu.europa.ec.commonfeature.ui.request.model.RegistrationWarningUi
 import eu.europa.ec.commonfeature.ui.request.model.RelyingPartyHeaderUi
 import eu.europa.ec.commonfeature.ui.request.model.RequestDataUi
 import eu.europa.ec.commonfeature.ui.request.model.RequestDocumentItemUi
-import eu.europa.ec.corelogic.controller.VeranaTrustState
+import eu.europa.ec.corelogic.model.VeranaTrustState
+import eu.europa.ec.corelogic.model.blocksAction
 import eu.europa.ec.uilogic.component.AppIcons
 import eu.europa.ec.uilogic.component.ListItemTrailingContentDataUi
 import eu.europa.ec.uilogic.component.VeranaTrustCardUi
@@ -55,7 +56,6 @@ data class State(
 
     val intentAction: IntentAction? = null,
 
-    // Null on flows that carry no Verana verdict (proximity, DC-API); those stay ungated.
     val veranaTrust: VeranaTrustState? = null,
     val veranaTrustCard: VeranaTrustCardUi? = null,
 ) : ViewState {
@@ -69,8 +69,7 @@ data class State(
 
             // a shown warning banner gates Share until its switch is flipped
             val riskAcknowledged = registrationWarning?.riskAccepted != false
-            val veranaAllows = veranaTrust?.allowAction != false
-            return claimsSatisfied && riskAcknowledged && veranaAllows
+            return claimsSatisfied && riskAcknowledged && !veranaTrust.blocksAction
         }
 }
 
@@ -89,6 +88,8 @@ sealed class Event : ViewEvent {
     data object PrivacyPolicyLinkClicked : Event()
 
     data class RegistrationRiskToggled(val isAccepted: Boolean) : Event()
+
+    data object VeranaTrustRetry : Event()
 
     sealed class BottomSheet : Event() {
         data class UpdateBottomSheetState(val isOpen: Boolean) : BottomSheet()
@@ -131,6 +132,8 @@ abstract class RequestViewModel : MviViewModel<Event, State, Effect>() {
 
     open fun init(intentAction: IntentAction?) {}
 
+    open fun retryVeranaTrust() {}
+
     /**
      * Called during [NavigationType.Pop].
      * */
@@ -169,7 +172,7 @@ abstract class RequestViewModel : MviViewModel<Event, State, Effect>() {
             }
 
             is Event.StickyButtonPressed -> {
-                if (viewState.value.veranaTrust?.allowAction == false) {
+                if (viewState.value.veranaTrust.blocksAction) {
                     showBottomSheet(sheetContent = RequestBottomSheetContent.VerifierNotTrusted)
                 } else {
                     doNavigation(NavigationType.PushRoute(getNextScreen()))
@@ -215,6 +218,8 @@ abstract class RequestViewModel : MviViewModel<Event, State, Effect>() {
                     )
                 }
             }
+
+            is Event.VeranaTrustRetry -> retryVeranaTrust()
 
             is Event.BottomSheet.UpdateBottomSheetState -> {
                 setState {

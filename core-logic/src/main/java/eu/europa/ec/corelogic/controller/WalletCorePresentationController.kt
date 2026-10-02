@@ -32,6 +32,7 @@ import eu.europa.ec.corelogic.model.PresentationMatchDomain
 import eu.europa.ec.corelogic.model.PresentationSelectionDomain
 import eu.europa.ec.corelogic.model.RegistrationStatusDomain
 import eu.europa.ec.corelogic.model.RelyingPartyDomain
+import eu.europa.ec.corelogic.model.blocksAction
 import eu.europa.ec.corelogic.model.identityKey
 import eu.europa.ec.corelogic.model.requesterUniqueIdOrNull
 import eu.europa.ec.corelogic.model.resolveRequesterName
@@ -62,6 +63,7 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.multipaz.presentment.CredentialMatchSourceOpenID4VP
 import org.multipaz.presentment.CredentialPresentmentSelection
 import org.multipaz.presentment.CredentialPresentmentSetOptionMemberMatch
 import org.multipaz.securearea.KeyUnlockData
@@ -88,6 +90,7 @@ sealed class TransferEventPartialState {
         val combinationsDomain: List<PresentationCombinationDomain>,
         val relyingParty: RelyingPartyDomain,
         val veranaCertificates: List<X509Certificate> = emptyList(),
+        val veranaVct: String? = null,
     ) : TransferEventPartialState()
 
     data object VerifierNotTrusted : TransferEventPartialState()
@@ -433,11 +436,8 @@ class WalletCorePresentationControllerImpl(
     }
 
     override suspend fun sendRequestedDocuments(): SendRequestedDocumentsPartialState {
-        // The Verana verdict gates the wire send, not just the consent screen: a remembered or
-        // re-entered flow that skips the dialog must still be unable to disclose. OpenID4VP only;
-        // proximity and DC-API carry no verdict.
         if (runCatching { requireConfig() }.getOrNull() is PresentationControllerConfig.OpenId4VP &&
-            veranaTrustController?.latestVerifierState?.value?.allowAction == false
+            veranaTrustController?.latestVerifierState?.value.blocksAction
         ) {
             return SendRequestedDocumentsPartialState.Failure(
                 error = "The Verana public registry does not vouch for this verifier."
@@ -630,6 +630,7 @@ class WalletCorePresentationControllerImpl(
                 combinationsDomain = combinationsDomain,
                 relyingParty = relyingParty,
                 veranaCertificates = veranaCertificates,
+                veranaVct = success.requestedVct(),
             )
         }.getOrElse { throwable ->
             // OpenID4VP over the DC-API delivers the untrusted-verifier rejection as a
@@ -714,6 +715,13 @@ private fun Throwable.isUntrustedVerifierRejection(): Boolean {
     // dedicated untrusted-verifier error instead of an implementation-only openid4vp exception
     return toString().contains(other = "Untrusted x5c", ignoreCase = true)
 }
+
+private fun RequestProcessor.ProcessedRequest.Success.requestedVct(): String? =
+    presentmentSelections
+        .flatMap { selection -> selection.matches }
+        .flatMap { match -> (match.source as? CredentialMatchSourceOpenID4VP)?.credentialQuery?.vctValues.orEmpty() }
+        .distinct()
+        .singleOrNull()
 
 private fun RequestProcessor.ProcessedRequest.Success.buildCombinationsDomain(): List<PresentationCombinationDomain> {
     return presentmentSelections.map { selection ->

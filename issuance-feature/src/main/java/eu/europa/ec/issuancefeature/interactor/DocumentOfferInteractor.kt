@@ -37,6 +37,7 @@ import eu.europa.ec.corelogic.extension.getName
 import eu.europa.ec.corelogic.model.DocumentIdentifier
 import eu.europa.ec.corelogic.model.IssuerRegistrationDomain
 import eu.europa.ec.corelogic.model.UntrustedIssuerReasonDomain
+import eu.europa.ec.corelogic.model.blocksAction
 import eu.europa.ec.eudi.openid4vci.TxCodeInputMode
 import eu.europa.ec.eudi.wallet.document.DocumentId
 import eu.europa.ec.eudi.wallet.document.format.SdJwtVcFormat
@@ -215,9 +216,10 @@ class DocumentOfferInteractorImpl(
                                     issuerRegistration = response.issuerRegistration,
                                     veranaIssuerUrl = response.offer.issuerMetadata
                                         .credentialIssuerIdentifier.value.value.toString(),
-                                    veranaVct = response.offer.offeredDocuments.firstNotNullOfOrNull {
-                                        (it.documentFormat as? SdJwtVcFormat)?.vct
-                                    },
+                                    veranaVct = response.offer.offeredDocuments
+                                        .mapNotNull { (it.documentFormat as? SdJwtVcFormat)?.vct }
+                                        .distinct()
+                                        .singleOrNull(),
                                 )
                             } else {
                                 ResolveDocumentOfferInteractorPartialState.Failure(
@@ -245,9 +247,7 @@ class DocumentOfferInteractorImpl(
         txCode: SecurePin?
     ): Flow<IssueDocumentsInteractorPartialState> =
         flow {
-            // The verdict gates the action, not just the dialog: a disabled button is not a
-            // security boundary when another entry point can reach this flow.
-            if (veranaTrustController.latestIssuerState.value?.allowAction == false) {
+            if (veranaTrustController.latestIssuerState.value.blocksAction) {
                 emit(
                     IssueDocumentsInteractorPartialState.IssuerNotTrusted(
                         reason = UntrustedIssuerReasonDomain.ACCESS_CERTIFICATE

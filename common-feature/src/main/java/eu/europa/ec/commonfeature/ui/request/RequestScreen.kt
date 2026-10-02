@@ -254,6 +254,7 @@ private fun Content(
                     .fillMaxWidth()
                     .padding(vertical = SPACING_SMALL.dp),
                 data = safeTrustCard,
+                onRetry = { onEventSend(Event.VeranaTrustRetry) },
             )
         }
 

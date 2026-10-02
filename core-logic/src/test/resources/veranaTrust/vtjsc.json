@@ -1,0 +1,38 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    "https://www.w3.org/ns/credentials/undefined-terms/v2"
+  ],
+  "id": "https://playground-demo.playground.devnet.verana.network/vt/schemas-8-jsc.json",
+  "type": [
+    "VerifiableCredential",
+    "JsonSchemaCredential"
+  ],
+  "issuer": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network",
+  "credentialSubject": {
+    "type": "JsonSchema",
+    "jsonSchema": {
+      "$ref": "vpr:verana:vna-devnet-1:cs:8"
+    },
+    "digestSRI": "sha384-5ho+wL3totRSpaN+xya/uevZ3T3cnIlPAMcaFbPmd7I+rqckOtVrbDabpiL4rem3",
+    "id": "vpr:verana:vna-devnet-1:cs:8"
+  },
+  "validFrom": "2026-10-01T14:40:32.399Z",
+  "validUntil": "2036-09-28T14:40:32.398Z",
+  "credentialSchema": {
+    "digestSRI": "sha384-FdPKzKLFNWo+3ZqV9vjuY8aNQk+636lvGRKKNzAfy93Q9jf+lNHD8j91g/KHWCBX",
+    "id": "https://www.w3.org/ns/credentials/json-schema/v2.json",
+    "type": "JsonSchema"
+  },
+  "proof": {
+    "type": "DataIntegrityProof",
+    "cryptosuite": "eddsa-jcs-2022",
+    "verificationMethod": "did:webvh:QmdLKxG6ZdBRJbUevm1mQdPr3arKSE3bg5RfA8cg8uUszF:playground-demo.playground.devnet.verana.network#z6MkpgURAWmKM9pZehgnbZyPAyCF59cGdircgTDauNb9dGXF",
+    "proofPurpose": "assertionMethod",
+    "@context": [
+      "https://www.w3.org/ns/credentials/v2",
+      "https://www.w3.org/ns/credentials/undefined-terms/v2"
+    ],
+    "proofValue": "z2Sik7fRZcLoqSmmrdfS2ZBFWqYHY6GAAva9E2DYMriKb6ToY8UB7bomycYJWS2Rd9EDQiDR7zpopZGWN3LmZgrfq"
+  }
+}

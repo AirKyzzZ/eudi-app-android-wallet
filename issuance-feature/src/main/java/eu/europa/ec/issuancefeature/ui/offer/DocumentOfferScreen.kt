@@ -203,7 +203,6 @@ private fun Content(
                 informativeText = stringResource(id = R.string.issuance_document_offer_error_no_document)
             )
         } else {
-            // in the lazy list so a tall trust card scrolls instead of squeezing the documents away
             MainContent(
                 modifier = Modifier.fillMaxSize(),
                 documents = state.documents,
@@ -294,6 +293,7 @@ private fun OfferHeader(
                     .fillMaxWidth()
                     .padding(vertical = SPACING_SMALL.dp),
                 data = safeTrustCard,
+                onRetry = { onEventSend(Event.VeranaTrustRetry) },
             )
         }
     }

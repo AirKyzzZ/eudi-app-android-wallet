@@ -29,12 +29,11 @@ import eu.europa.ec.corelogic.controller.WalletCoreDocumentsController
 import eu.europa.ec.corelogic.controller.WalletCorePresentationController
 import eu.europa.ec.corelogic.model.RelyingPartyDomain
 import eu.europa.ec.corelogic.model.overaskedClaimsOrEmpty
-import eu.europa.ec.eudi.wallet.document.format.SdJwtVcFormat
 import eu.europa.ec.resourceslogic.provider.ResourceProvider
 import eu.europa.ec.uilogic.navigation.helper.IntentAction
-import java.security.cert.X509Certificate
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.mapNotNull
+import java.security.cert.X509Certificate
 
 sealed class PresentationRequestInteractorPartialState {
     data class Success(
@@ -48,6 +47,7 @@ sealed class PresentationRequestInteractorPartialState {
     data class NoData(
         val relyingParty: RelyingPartyDomain,
         val veranaCertificates: List<X509Certificate> = emptyList(),
+        val veranaVct: String? = null,
     ) : PresentationRequestInteractorPartialState()
 
     data class Failure(val error: String) : PresentationRequestInteractorPartialState()
@@ -95,6 +95,7 @@ class PresentationRequestInteractorImpl(
                         PresentationRequestInteractorPartialState.NoData(
                             relyingParty = response.relyingParty,
                             veranaCertificates = response.veranaCertificates,
+                            veranaVct = response.veranaVct,
                         )
                     } else {
                         val storageDocuments = walletCoreDocumentsController.getAllIssuedDocuments()
@@ -122,26 +123,19 @@ class PresentationRequestInteractorImpl(
                         ).getOrThrow()
                             .filter { it.documents.isNotEmpty() }
 
-                        val matchedDocumentIds = combinationsDomain
-                            .flatMap { it.matches }
-                            .map { it.documentId }
-                            .toSet()
-                        val veranaVct = storageDocuments
-                            .filter { it.id in matchedDocumentIds }
-                            .firstNotNullOfOrNull { (it.format as? SdJwtVcFormat)?.vct }
-
                         if (combinationsUi.isNotEmpty()) {
                             PresentationRequestInteractorPartialState.Success(
                                 relyingParty = response.relyingParty,
                                 combinationsUi = combinationsUi,
                                 claimsAreSelectable = claimsAreSelectable,
                                 veranaCertificates = response.veranaCertificates,
-                                veranaVct = veranaVct,
+                                veranaVct = response.veranaVct,
                             )
                         } else {
                             PresentationRequestInteractorPartialState.NoData(
                                 relyingParty = response.relyingParty,
                                 veranaCertificates = response.veranaCertificates,
+                                veranaVct = response.veranaVct,
                             )
                         }
                     }

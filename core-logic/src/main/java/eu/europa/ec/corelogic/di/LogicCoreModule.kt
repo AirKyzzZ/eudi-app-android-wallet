@@ -37,8 +37,14 @@ import eu.europa.ec.corelogic.provider.RegistrationCheckProvider
 import eu.europa.ec.corelogic.provider.RegistrationCheckProviderImpl
 import eu.europa.ec.corelogic.provider.WalletCoreAttestationProvider
 import eu.europa.ec.corelogic.provider.WalletCoreAttestationProviderImpl
+import eu.europa.ec.corelogic.verana.CheckVeranaAccreditationImpl
+import eu.europa.ec.corelogic.verana.EvaluateVeranaTrustImpl
+import eu.europa.ec.corelogic.verana.ResolveVeranaTrustImpl
+import eu.europa.ec.corelogic.verana.VerifyVeranaDidKeyBindingImpl
+import eu.europa.ec.corelogic.verana.VerifyVeranaIssuerMetadataImpl
 import eu.europa.ec.eudi.wallet.EudiWallet
-import eu.europa.ec.networklogic.repository.VeranaTrustRepository
+import eu.europa.ec.networklogic.repository.VeranaDocumentRepository
+import eu.europa.ec.networklogic.repository.VeranaIndexerRepository
 import eu.europa.ec.networklogic.repository.WalletAttestationRepository
 import eu.europa.ec.resourceslogic.provider.ResourceProvider
 import eu.europa.ec.storagelogic.dao.BookmarkDao
@@ -88,8 +94,26 @@ fun provideWalletCoreConfig(
 
 @Single
 fun provideVeranaTrustController(
-    veranaTrustRepository: VeranaTrustRepository
-): VeranaTrustController = VeranaTrustControllerImpl(veranaTrustRepository)
+    indexerRepository: VeranaIndexerRepository,
+    documentRepository: VeranaDocumentRepository,
+    logController: LogController,
+): VeranaTrustController {
+    val resolveVeranaTrust = ResolveVeranaTrustImpl(indexerRepository)
+    return VeranaTrustControllerImpl(
+        documentRepository = documentRepository,
+        verifyVeranaIssuerMetadata = VerifyVeranaIssuerMetadataImpl(documentRepository),
+        evaluateVeranaTrust = EvaluateVeranaTrustImpl(
+            verifyVeranaDidKeyBinding = VerifyVeranaDidKeyBindingImpl(documentRepository),
+            resolveVeranaTrust = resolveVeranaTrust,
+            checkVeranaAccreditation = CheckVeranaAccreditationImpl(
+                documentRepository = documentRepository,
+                indexerRepository = indexerRepository,
+                resolveVeranaTrust = resolveVeranaTrust,
+            ),
+            logController = logController,
+        ),
+    )
+}
 
 @Factory
 fun provideWalletCoreLogController(logController: LogController): WalletCoreLogController =

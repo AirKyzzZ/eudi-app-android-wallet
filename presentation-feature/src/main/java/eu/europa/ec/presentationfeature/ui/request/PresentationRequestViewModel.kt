@@ -31,9 +31,8 @@ import eu.europa.ec.commonfeature.ui.request.model.toRegistrationWarningUi
 import eu.europa.ec.commonfeature.ui.request.model.toRelyingPartyHeaderUi
 import eu.europa.ec.commonfeature.util.toCardUi
 import eu.europa.ec.corelogic.controller.VeranaTrustController
-import eu.europa.ec.corelogic.controller.VeranaTrustState
-import eu.europa.ec.corelogic.controller.VeranaVerdict
 import eu.europa.ec.corelogic.di.getOrNullKoinScope
+import eu.europa.ec.corelogic.model.blocksAction
 import eu.europa.ec.presentationfeature.interactor.PresentationRequestInteractor
 import eu.europa.ec.presentationfeature.interactor.PresentationRequestInteractorPartialState
 import eu.europa.ec.resourceslogic.R
@@ -47,11 +46,11 @@ import eu.europa.ec.uilogic.navigation.helper.IntentAction
 import eu.europa.ec.uilogic.navigation.helper.generateComposableArguments
 import eu.europa.ec.uilogic.navigation.helper.generateComposableNavigationLink
 import eu.europa.ec.uilogic.serializer.UiSerializer
-import java.security.cert.X509Certificate
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.koin.core.annotation.InjectedParam
 import org.koin.core.annotation.KoinViewModel
+import java.security.cert.X509Certificate
 
 @KoinViewModel
 class PresentationRequestViewModel(
@@ -63,7 +62,7 @@ class PresentationRequestViewModel(
 ) : RequestViewModel() {
 
     private var veranaTrustJob: Job? = null
-    private var veranaCredentialName: String? = null
+    private var veranaTrustRequest: VeranaTrustRequest? = null
 
     override fun getNextScreen(): String {
         return generateComposableNavigationLink(
@@ -172,21 +171,17 @@ class PresentationRequestViewModel(
                                 registrationWarning = registrationWarning,
                                 requestDataUi = requestData,
                                 claimsAreSelectable = response.claimsAreSelectable,
-                                veranaTrust = VeranaTrustState.resolving,
-                                veranaTrustCard = VeranaTrustState.resolving.toCardUi(
-                                    asksFor = true,
-                                    credentialName = veranaCredentialName,
-                                ),
                             )
                         }
 
-                        veranaCredentialName = requestData.selectedDocuments
-                            .firstOrNull()
-                            ?.let { it.domainPayload.docName }
                         collectVeranaTrust(
-                            certificates = response.veranaCertificates,
-                            vct = response.veranaVct,
-                            relyingPartyIsFullyVerified = response.relyingParty.isFullyVerified,
+                            VeranaTrustRequest(
+                                certificates = response.veranaCertificates,
+                                vct = response.veranaVct,
+                                partyName = response.relyingParty.name,
+                                credentialName = requestData.selectedDocuments.firstOrNull()?.domainPayload?.docName,
+                                relyingPartyIsFullyVerified = response.relyingParty.isFullyVerified,
+                            )
                         )
 
                         updateData(updatedItems = requestData.selectedDocuments)
@@ -219,18 +214,17 @@ class PresentationRequestViewModel(
                                 relyingPartyHeader = relyingPartyHeader,
                                 registrationWarning = null,
                                 requestDataUi = RequestDataUi.NoData,
-                                veranaTrust = VeranaTrustState.resolving,
-                                veranaTrustCard = VeranaTrustState.resolving.toCardUi(
-                                    asksFor = true,
-                                    credentialName = veranaCredentialName,
-                                ),
                             )
                         }
 
                         collectVeranaTrust(
-                            certificates = response.veranaCertificates,
-                            vct = null,
-                            relyingPartyIsFullyVerified = response.relyingParty.isFullyVerified,
+                            VeranaTrustRequest(
+                                certificates = response.veranaCertificates,
+                                vct = response.veranaVct,
+                                partyName = response.relyingParty.name,
+                                credentialName = null,
+                                relyingPartyIsFullyVerified = response.relyingParty.isFullyVerified,
+                            )
                         )
                     }
                 }
@@ -253,26 +247,26 @@ class PresentationRequestViewModel(
         getOrNullKoinScope(viewState.value.presentationScopeId)?.close()
     }
 
-    private fun collectVeranaTrust(
-        certificates: List<X509Certificate>,
-        vct: String?,
-        relyingPartyIsFullyVerified: Boolean,
-    ) {
+    override fun retryVeranaTrust() {
+        veranaTrustRequest?.let(::collectVeranaTrust)
+    }
+
+    private fun collectVeranaTrust(request: VeranaTrustRequest) {
+        veranaTrustRequest = request
         veranaTrustJob?.cancel()
         veranaTrustJob = viewModelScope.launch {
-            veranaTrustController.verifierTrust(certificates, vct).collect { trust ->
+            veranaTrustController.verifierTrust(request.certificates, request.vct).collect { trust ->
                 setState {
                     copy(
                         veranaTrust = trust,
                         veranaTrustCard = trust.toCardUi(
-                            asksFor = true,
-                            credentialName = veranaCredentialName,
+                            partyName = request.partyName,
+                            credentialName = request.credentialName,
                         ),
                         relyingPartyHeader = relyingPartyHeader?.let { header ->
                             header.copy(
                                 relyingParty = header.relyingParty.copy(
-                                    isVerified = relyingPartyIsFullyVerified &&
-                                            trust.verdict == VeranaVerdict.TRUSTED,
+                                    isVerified = request.relyingPartyIsFullyVerified && !trust.blocksAction,
                                 ),
                             )
                         },
@@ -282,3 +276,11 @@ class PresentationRequestViewModel(
         }
     }
 }
+
+private data class VeranaTrustRequest(
+    val certificates: List<X509Certificate>,
+    val vct: String?,
+    val partyName: String?,
+    val credentialName: String?,
+    val relyingPartyIsFullyVerified: Boolean,
+)

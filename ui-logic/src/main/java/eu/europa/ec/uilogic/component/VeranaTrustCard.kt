@@ -16,421 +16,453 @@
 
 package eu.europa.ec.uilogic.component
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import eu.europa.ec.resourceslogic.R
-import kotlinx.serialization.Serializable
 
-// Wording and states follow the versioned card at playground/public/trust-card/index.html.
-// The strings are deliberately not localized: the same evaluation must read identically in
-// every wallet that renders it.
+enum class VeranaVerdictUi(val label: String) {
+    RESOLVING("CHECKING…"),
+    TRUSTED("TRUSTED"),
+    UNTRUSTED("UNTRUSTED"),
+    UNVERIFIED("COULD NOT VERIFY"),
+}
 
-enum class VeranaVerdictUi { RESOLVING, TRUSTED, UNTRUSTED, UNVERIFIED }
+enum class VeranaStepToneUi {
+    OK,
+    BAD,
+    NONE,
+}
 
-@Serializable
-data class VeranaTrustCardUi(
-    val verdict: VeranaVerdictUi = VeranaVerdictUi.RESOLVING,
-    val sentence: String = "Checking the Verana public registry…",
-    val did: String? = null,
-    val serviceName: String? = null,
-    val operatorName: String? = null,
-    val serviceCredentialPresented: Boolean = false,
-    val operatorCredentialPresented: Boolean = false,
-    val serviceSelfIssued: Boolean = false,
-    val operatorSelfIssued: Boolean = false,
-    val serviceDescription: String? = null,
-    val operatorAddress: String? = null,
-    val operatorCountryCode: String? = null,
-    val operatorRegistryId: String? = null,
-    val minimumAgeRequired: Int? = null,
-    val hasTerms: Boolean = false,
-    val hasPrivacyPolicy: Boolean = false,
-    val credentialName: String? = null,
-    val asksFor: Boolean = false,
-    val accreditationGranted: Boolean? = null,
-    val accreditationReason: String? = null,
+data class VeranaIdentityUi(
+    val label: String,
+    val tone: VeranaStepToneUi,
+    val headline: String,
+    val verified: Boolean,
+    val lines: List<String> = emptyList(),
+    val countryCode: String? = null,
+    val registryId: String? = null,
 )
 
-private const val SELF_ISSUED = "Issued by this service to itself, so nothing independent verifies it."
+data class VeranaAskUi(
+    val label: String,
+    val credentialName: String,
+    val granted: Boolean?,
+    val sentence: String,
+)
 
-private val Green = Color(0xFF16A34A)
-private val Amber = Color(0xFFD97706)
-private val Red = Color(0xFFDC2626)
-private val Grey = Color(0xFF6B7280)
-private val Verana = Color(0xFF7C3AED)
+data class VeranaLinkUi(
+    val label: String,
+    val url: String,
+    val intact: Boolean,
+)
 
-private val VeranaVerdictUi.color: Color
-    get() = when (this) {
-        VeranaVerdictUi.TRUSTED -> Green
-        VeranaVerdictUi.UNTRUSTED -> Red
-        VeranaVerdictUi.RESOLVING, VeranaVerdictUi.UNVERIFIED -> Grey
-    }
+data class VeranaConditionsUi(
+    val minimumAge: Int?,
+    val links: List<VeranaLinkUi>,
+)
 
-private val VeranaVerdictUi.pillLabel: String
-    get() = when (this) {
-        VeranaVerdictUi.TRUSTED -> "TRUSTED"
-        VeranaVerdictUi.UNTRUSTED -> "UNTRUSTED"
-        VeranaVerdictUi.UNVERIFIED -> "COULD NOT VERIFY"
-        VeranaVerdictUi.RESOLVING -> "CHECKING…"
-    }
+data class VeranaTrustCardUi(
+    val verdict: VeranaVerdictUi,
+    val note: String,
+    val did: String? = null,
+    val networkLabel: String? = null,
+    val identities: List<VeranaIdentityUi> = emptyList(),
+    val checkedAt: String? = null,
+    val ask: VeranaAskUi? = null,
+    val conditions: VeranaConditionsUi? = null,
+    val canRetry: Boolean = false,
+)
 
 @Composable
 fun VeranaTrustCard(
-    modifier: Modifier = Modifier,
     data: VeranaTrustCardUi,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val outline = MaterialTheme.colorScheme.outlineVariant
-
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .border(1.dp, outline, RoundedCornerShape(12.dp))
-            .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+            .background(CardPalette.surface, RoundedCornerShape(16.dp))
+            .border(1.dp, CardPalette.grey200, RoundedCornerShape(16.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        data.did?.let { did ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(data.verdict.color)
-                    ) {}
-                    Text(
-                        text = truncateDid(did),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                    )
+        if (data.did != null) {
+            DidRow(did = data.did, verdict = data.verdict, networkLabel = data.networkLabel)
+        } else if (data.verdict == VeranaVerdictUi.RESOLVING) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = CardPalette.grey500,
+                    strokeWidth = 2.dp,
+                )
+                Spacer(Modifier.weight(1f))
+                VeranaMark(size = 19.dp)
+            }
+        }
+
+        if (data.identities.isNotEmpty()) {
+            Column {
+                data.identities.forEachIndexed { index, identity ->
+                    ChainStep(identity = identity, isLast = index == data.identities.lastIndex)
                 }
-                Pill(text = "TESTNET", color = Grey)
-                VeranaMark()
             }
         }
 
-        IdentityBlock(
-            label = "SERVICE",
-            value = data.serviceName
-                ?: if (data.serviceCredentialPresented) "Service claims not verified"
-                else "No ECS-Service credential presented",
-            verified = data.serviceName != null,
-            detail = data.serviceDescription,
-            subLine = SELF_ISSUED.takeIf {
-                data.serviceName == null && data.serviceCredentialPresented && data.serviceSelfIssued
-            },
-        )
-        IdentityBlock(
-            label = "OPERATED BY",
-            value = data.operatorName
-                ?: if (data.operatorCredentialPresented) "Operator claims not verified"
-                else "No ECS-Organization credential presented",
-            verified = data.operatorName != null,
-            detail = data.operatorAddress,
-            countryCode = data.operatorCountryCode,
-            registryId = data.operatorRegistryId,
-            subLine = when {
-                data.operatorName == null && !data.operatorCredentialPresented ->
-                    "Nothing verifies who operates this service"
+        VerdictPill(verdict = data.verdict, note = data.note)
 
-                data.operatorName == null && data.operatorSelfIssued -> SELF_ISSUED
-                else -> null
-            },
-        )
+        data.checkedAt?.let { Footnote(it) }
 
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            VerdictPill(data.verdict)
+        data.ask?.let { AskBlock(it) }
+
+        data.conditions?.let { ConditionsBlock(it) }
+
+        if (data.canRetry) {
             Text(
-                text = data.sentence,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface,
+                text = "Try again",
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                color = CardPalette.link,
+                modifier = Modifier
+                    .clickable(role = Role.Button, onClick = onRetry)
+                    .padding(vertical = 4.dp),
             )
         }
 
-        data.credentialName?.let { credential ->
-            OffersBlock(
-                label = if (data.asksFor) "ASKS YOU FOR" else "OFFERS YOU",
-                credentialName = credential,
-                granted = data.accreditationGranted,
-                reason = data.accreditationReason,
-            )
+        if (data.networkLabel != null) {
+            Footnote("Demo network - do not share real data")
         }
-
-        if (data.serviceName != null) {
-            ConditionsBlock(
-                minimumAgeRequired = data.minimumAgeRequired,
-                hasTerms = data.hasTerms,
-                hasPrivacyPolicy = data.hasPrivacyPolicy,
-            )
-        }
-
-        data.did?.let {
-            Text(
-                text = "Open this DID in Verana ↗",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Verana,
-            )
-        }
-
-        Text(
-            text = "Demo network - do not share real data",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
 @Composable
-private fun IdentityBlock(
-    label: String,
-    value: String,
-    verified: Boolean,
-    detail: String? = null,
-    countryCode: String? = null,
-    registryId: String? = null,
-    subLine: String? = null,
+private fun DidRow(
+    did: String,
+    verdict: VeranaVerdictUi,
+    networkLabel: String?,
+) = Row(
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(8.dp),
 ) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        CheckMark(verified)
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                if (verified) AvatarTile(value)
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (verified) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (verified) MaterialTheme.colorScheme.onSurface else Grey,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                countryCode?.let { Pill(text = it, color = Red) }
-            }
-            detail?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            registryId?.let { Pill(text = "REG $it", color = Grey) }
-            subLine?.let {
-                Text(text = it, style = MaterialTheme.typography.labelSmall, color = Grey)
-            }
-        }
-    }
-}
-
-@Composable
-private fun OffersBlock(
-    label: String,
-    credentialName: String,
-    granted: Boolean?,
-    reason: String?,
-) {
-    val tone = if (granted == false) Amber else Green
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .border(1.dp, tone.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-            .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = credentialName,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        reason?.let {
-            Text(text = it, style = MaterialTheme.typography.bodySmall, color = tone)
-        }
-    }
-}
-
-@Composable
-private fun ConditionsBlock(
-    minimumAgeRequired: Int?,
-    hasTerms: Boolean,
-    hasPrivacyPolicy: Boolean,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-            .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        Text(
-            text = "CONDITIONS OF CONNECTING",
-            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = buildString {
-                append(minimumAgeRequired?.takeIf { it > 0 }?.let { "Minimum age $it" } ?: "No age restriction")
-                append(" · Terms ")
-                append(if (hasTerms) "published" else "not published")
-                append(" · Privacy ")
-                append(if (hasPrivacyPolicy) "published" else "not published")
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-    }
-}
-
-@Composable
-private fun ConditionRow(label: String, present: Boolean) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.SemiBold,
-            color = if (present) Verana else Grey,
-        )
-        Text(
-            text = if (present) "published" else "not published",
-            style = MaterialTheme.typography.labelSmall,
-            color = if (present) Green else Grey,
-        )
-    }
-}
-
-@Composable
-private fun CheckMark(verified: Boolean) {
-    Column(
-        modifier = Modifier
-            .padding(top = 18.dp)
-            .size(16.dp)
-            .clip(CircleShape)
-            .background(if (verified) Green else Grey.copy(alpha = 0.35f)),
-    ) {}
-}
-
-@Composable
-private fun AvatarTile(name: String) {
-    val initials = name.split(' ')
-        .filter { it.isNotBlank() && it.first().isLetter() }
-        .take(2)
-        .map { it.first().uppercaseChar() }
-        .joinToString("")
-        .ifEmpty { "?" }
-
     Box(
         modifier = Modifier
-            .size(26.dp)
-            .clip(RoundedCornerShape(7.dp))
-            .background(Verana),
-        contentAlignment = Alignment.Center,
-    ) {
+            .size(8.dp)
+            .background(verdict.color, CircleShape),
+    )
+    Text(
+        text = did.middleTruncated(),
+        style = MaterialTheme.typography.bodySmall,
+        color = CardPalette.grey500,
+        maxLines = 1,
+        modifier = Modifier.weight(1f),
+    )
+    networkLabel?.let { label ->
         Text(
-            text = initials,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+            color = CardPalette.warning,
+            modifier = Modifier
+                .background(CardPalette.warningContainer, RoundedCornerShape(4.dp))
+                .padding(horizontal = 8.dp, vertical = 2.dp),
         )
+    }
+    VeranaMark(size = 19.dp)
+}
+
+@Composable
+private fun ChainStep(
+    identity: VeranaIdentityUi,
+    isLast: Boolean,
+) = Row(
+    modifier = Modifier.height(IntrinsicSize.Min),
+    horizontalArrangement = Arrangement.spacedBy(12.dp),
+) {
+    Column(
+        modifier = Modifier
+            .width(28.dp)
+            .fillMaxHeight(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        StepTick(identity.tone)
+        if (!isLast) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .width(2.dp)
+                    .background(identity.tone.railColor),
+            )
+        }
+    }
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .padding(bottom = if (isLast) 0.dp else 16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        SectionLabel(identity.label)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = identity.headline,
+                style = if (identity.verified) {
+                    MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                } else {
+                    MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                },
+                color = when {
+                    identity.verified -> CardPalette.grey900
+                    identity.tone == VeranaStepToneUi.NONE -> CardPalette.grey600
+                    else -> CardPalette.danger
+                },
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            identity.countryCode?.let { Chip(text = it) }
+        }
+        identity.lines.forEach { line ->
+            Text(
+                text = line,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (identity.verified) CardPalette.grey700 else CardPalette.grey500,
+            )
+        }
+        identity.registryId?.let { Chip(text = "REG $it") }
     }
 }
 
 @Composable
-private fun VeranaMark(size: Dp = 18.dp) {
-    Image(
-        painter = painterResource(id = R.drawable.ic_verana_mark),
-        contentDescription = null,
-        modifier = Modifier.size(size),
+private fun StepTick(tone: VeranaStepToneUi) = Box(
+    modifier = Modifier
+        .size(28.dp)
+        .background(tone.badgeColor, CircleShape),
+    contentAlignment = Alignment.Center,
+) {
+    Text(
+        text = when (tone) {
+            VeranaStepToneUi.OK -> "✓"
+            VeranaStepToneUi.BAD -> "✕"
+            VeranaStepToneUi.NONE -> "?"
+        },
+        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+        color = Color.White,
     )
 }
 
 @Composable
-private fun VerdictPill(verdict: VeranaVerdictUi) {
+private fun VerdictPill(
+    verdict: VeranaVerdictUi,
+    note: String,
+) = Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .border(1.dp, verdict.color, RoundedCornerShape(999.dp))
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .background(Color.White, RoundedCornerShape(12.dp))
+            .border(width = 2.dp, color = verdict.color, shape = RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
         VeranaMark(size = 16.dp)
         Text(
-            text = verdict.pillLabel,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
+            text = verdict.label,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp),
             color = verdict.color,
         )
+    }
+    Text(
+        text = note,
+        style = MaterialTheme.typography.bodySmall,
+        color = if (verdict == VeranaVerdictUi.UNTRUSTED) CardPalette.dangerDark else CardPalette.grey600,
+    )
+}
+
+@Composable
+private fun AskBlock(ask: VeranaAskUi) {
+    val (borderColor, containerColor, mark) = when (ask.granted) {
+        true -> Triple(CardPalette.positive, CardPalette.positiveContainer, "✓")
+        false -> Triple(CardPalette.danger, CardPalette.dangerContainer, "✕")
+        null -> Triple(CardPalette.grey200, CardPalette.grey50, "i")
+    }
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(containerColor, RoundedCornerShape(12.dp))
+            .border(width = 2.dp, color = borderColor, shape = RoundedCornerShape(12.dp))
+            .padding(12.dp),
+    ) {
+        SectionLabel(ask.label)
+        Text(
+            text = ask.credentialName,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            color = CardPalette.grey900,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = mark,
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = if (ask.granted == null) CardPalette.grey500 else borderColor,
+            )
+            Text(
+                text = ask.sentence,
+                style = MaterialTheme.typography.bodyMedium,
+                color = CardPalette.grey800,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
 
 @Composable
-private fun Pill(text: String, color: Color) {
+private fun ConditionsBlock(conditions: VeranaConditionsUi) = Column(
+    verticalArrangement = Arrangement.spacedBy(8.dp),
+    modifier = Modifier
+        .fillMaxWidth()
+        .background(CardPalette.grey100, RoundedCornerShape(12.dp))
+        .padding(12.dp),
+) {
+    SectionLabel("CONDITIONS OF CONNECTING")
     Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-        color = color,
-        modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(color.copy(alpha = 0.12f))
-            .padding(horizontal = 10.dp, vertical = 3.dp),
+        text = conditions.minimumAge
+            ?.let { "This service requires you to be at least $it to connect" }
+            ?: "No age restriction",
+        style = MaterialTheme.typography.bodyMedium,
+        color = CardPalette.grey700,
     )
+    val uriHandler = LocalUriHandler.current
+    conditions.links.forEach { link ->
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(role = Role.Button) { runCatching { uriHandler.openUri(link.url) } },
+        ) {
+            Text(
+                text = link.label,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = CardPalette.link,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = if (link.intact) "✓ intact" else "no digest",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = if (link.intact) FontWeight.Bold else FontWeight.Normal,
+                ),
+                color = if (link.intact) CardPalette.positive else CardPalette.grey500,
+            )
+        }
+    }
 }
 
-private fun truncateDid(did: String): String =
-    if (did.length <= 40) did else "${did.take(24)}…${did.takeLast(12)}"
+@Composable
+private fun Chip(text: String) = Text(
+    text = text,
+    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+    color = CardPalette.grey600,
+    modifier = Modifier
+        .background(CardPalette.grey100, RoundedCornerShape(4.dp))
+        .padding(horizontal = 6.dp, vertical = 2.dp),
+)
+
+@Composable
+private fun SectionLabel(text: String) = Text(
+    text = text,
+    style = MaterialTheme.typography.labelSmall.copy(
+        fontWeight = FontWeight.Bold,
+        fontSize = 10.sp,
+        letterSpacing = 0.8.sp,
+    ),
+    color = CardPalette.grey500,
+)
+
+@Composable
+private fun Footnote(text: String) = Text(
+    text = text,
+    style = MaterialTheme.typography.bodySmall,
+    color = CardPalette.grey500,
+)
+
+@Composable
+private fun VeranaMark(size: Dp) = Image(
+    painter = painterResource(id = R.drawable.ic_verana_mark),
+    contentDescription = null,
+    modifier = Modifier.size(size),
+)
+
+private val VeranaVerdictUi.color: Color
+    get() = when (this) {
+        VeranaVerdictUi.TRUSTED -> CardPalette.positive
+        VeranaVerdictUi.UNTRUSTED -> CardPalette.danger
+        VeranaVerdictUi.RESOLVING, VeranaVerdictUi.UNVERIFIED -> CardPalette.grey500
+    }
+
+private val VeranaStepToneUi.badgeColor: Color
+    get() = when (this) {
+        VeranaStepToneUi.OK -> CardPalette.positive
+        VeranaStepToneUi.BAD -> CardPalette.danger
+        VeranaStepToneUi.NONE -> CardPalette.grey400
+    }
+
+private val VeranaStepToneUi.railColor: Color
+    get() = when (this) {
+        VeranaStepToneUi.OK -> CardPalette.positiveRail
+        VeranaStepToneUi.BAD -> CardPalette.dangerRail
+        VeranaStepToneUi.NONE -> CardPalette.grey300
+    }
+
+private fun String.middleTruncated(maxLength: Int = 40): String =
+    if (length <= maxLength) this else "${take(maxLength - 10)}…${takeLast(9)}"
+
+private object CardPalette {
+    val surface = Color(0xFFFFFFFF)
+    val positive = Color(0xFF059669)
+    val positiveContainer = Color(0xFFECFDF5)
+    val positiveRail = Color(0xFF6EE7B7)
+    val danger = Color(0xFFDC2626)
+    val dangerDark = Color(0xFFB91C1C)
+    val dangerContainer = Color(0xFFFEF2F2)
+    val dangerRail = Color(0xFFFCA5A5)
+    val warning = Color(0xFFD97706)
+    val warningContainer = Color(0xFFFFFBEB)
+    val link = Color(0xFF1D4ED8)
+    val grey50 = Color(0xFFF9FAFB)
+    val grey100 = Color(0xFFF3F4F6)
+    val grey200 = Color(0xFFE5E7EB)
+    val grey300 = Color(0xFFD1D5DB)
+    val grey400 = Color(0xFF9CA3AF)
+    val grey500 = Color(0xFF6B7280)
+    val grey600 = Color(0xFF4B5563)
+    val grey700 = Color(0xFF374151)
+    val grey800 = Color(0xFF1F2937)
+    val grey900 = Color(0xFF111827)
+}

@@ -16,245 +16,114 @@
 
 package eu.europa.ec.corelogic.controller
 
-import eu.europa.ec.networklogic.model.VeranaAccreditation
-import eu.europa.ec.networklogic.model.VeranaEcsCredential
-import eu.europa.ec.networklogic.model.VeranaRole
-import eu.europa.ec.networklogic.model.VeranaTrustResolution
-import eu.europa.ec.networklogic.repository.VeranaTrustRepository
-import eu.europa.ec.networklogic.repository.didDomain
-import eu.europa.ec.networklogic.util.VeranaJws
-import java.security.cert.X509Certificate
-import java.security.interfaces.ECPublicKey
+import eu.europa.ec.corelogic.model.VeranaIssuerIdentity
+import eu.europa.ec.corelogic.model.VeranaTrustEvidence
+import eu.europa.ec.corelogic.model.VeranaTrustState
+import eu.europa.ec.corelogic.verana.EvaluateVeranaTrust
+import eu.europa.ec.corelogic.verana.VeranaX509
+import eu.europa.ec.corelogic.verana.VerifyVeranaIssuerMetadata
+import eu.europa.ec.networklogic.model.VeranaTrustResolution.Companion.unresolved
+import eu.europa.ec.networklogic.model.VeranaTrustRole
+import eu.europa.ec.networklogic.model.VeranaTrustStatus
+import eu.europa.ec.networklogic.model.VeranaUntrustedReason
+import eu.europa.ec.networklogic.repository.VeranaDocumentRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
-import kotlinx.serialization.json.JsonPrimitive
-
-enum class VeranaVerdict { RESOLVING, TRUSTED, UNTRUSTED, UNVERIFIED }
-
-data class VeranaTrustState(
-    val verdict: VeranaVerdict,
-    val sentence: String,
-    val did: String? = null,
-    val serviceName: String? = null,
-    val operatorName: String? = null,
-    val serviceCredentialPresented: Boolean = false,
-    val operatorCredentialPresented: Boolean = false,
-    val serviceSelfIssued: Boolean = false,
-    val operatorSelfIssued: Boolean = false,
-    val serviceDescription: String? = null,
-    val operatorAddress: String? = null,
-    val operatorCountryCode: String? = null,
-    val operatorRegistryId: String? = null,
-    val minimumAgeRequired: Int? = null,
-    val hasTerms: Boolean = false,
-    val hasPrivacyPolicy: Boolean = false,
-    val credentialName: String? = null,
-    val accreditation: VeranaAccreditation? = null,
-    val production: Boolean = true,
-) {
-    val allowAction: Boolean
-        get() = verdict == VeranaVerdict.TRUSTED && accreditation?.granted == true
-
-    companion object {
-        val resolving = VeranaTrustState(
-            verdict = VeranaVerdict.RESOLVING,
-            sentence = "Checking the Verana public registry…",
-        )
-
-        fun unverified(did: String? = null) = VeranaTrustState(
-            verdict = VeranaVerdict.UNVERIFIED,
-            sentence = "The Verana resolver could not be reached. This counterparty is neither trusted nor untrusted.",
-            did = did,
-        )
-    }
-}
+import kotlinx.coroutines.flow.onEach
+import java.security.cert.X509Certificate
 
 interface VeranaTrustController {
-    fun issuerTrust(credentialIssuerUrl: String, vct: String?): Flow<VeranaTrustState>
+    fun issuerTrust(credentialIssuer: String, vct: String?): Flow<VeranaTrustState>
     fun verifierTrust(certificates: List<X509Certificate>, vct: String?): Flow<VeranaTrustState>
-    val latestVerifierState: StateFlow<VeranaTrustState?>
     val latestIssuerState: StateFlow<VeranaTrustState?>
+    val latestVerifierState: StateFlow<VeranaTrustState?>
     fun clearVerifierState()
 }
 
 class VeranaTrustControllerImpl(
-    private val repository: VeranaTrustRepository,
+    private val documentRepository: VeranaDocumentRepository,
+    private val verifyVeranaIssuerMetadata: VerifyVeranaIssuerMetadata,
+    private val evaluateVeranaTrust: EvaluateVeranaTrust,
 ) : VeranaTrustController {
 
-    private val verifierState = MutableStateFlow<VeranaTrustState?>(null)
-    override val latestVerifierState: StateFlow<VeranaTrustState?> = verifierState
-
     private val issuerState = MutableStateFlow<VeranaTrustState?>(null)
-    override val latestIssuerState: StateFlow<VeranaTrustState?> = issuerState
+    override val latestIssuerState: StateFlow<VeranaTrustState?> = issuerState.asStateFlow()
+
+    private val verifierState = MutableStateFlow<VeranaTrustState?>(null)
+    override val latestVerifierState: StateFlow<VeranaTrustState?> = verifierState.asStateFlow()
 
     override fun clearVerifierState() {
         verifierState.value = null
     }
 
-    override fun issuerTrust(credentialIssuerUrl: String, vct: String?): Flow<VeranaTrustState> =
-        flow {
-            emit(VeranaTrustState.resolving.also { issuerState.value = it })
+    override fun issuerTrust(credentialIssuer: String, vct: String?): Flow<VeranaTrustState> = flow {
+        emit(VeranaTrustState.Resolving(role = VeranaTrustRole.ISSUER, did = null))
 
-            val metadata = repository.fetchSignedIssuerMetadata(credentialIssuerUrl)
-            if (metadata == null) {
-                emit(VeranaTrustState.unverified().also { issuerState.value = it })
-                return@flow
-            }
-            if (!metadata.signatureVerified) {
-                emit(untrusted(metadata.did, credentials = null).also { issuerState.value = it })
-                return@flow
-            }
+        val identity = documentRepository.fetchSignedIssuerMetadata(credentialIssuer)
+            ?.let { jwt -> verifyVeranaIssuerMetadata(jwt, credentialIssuer) }
+            ?: VeranaIssuerIdentity.NoDid
 
-            emit(evaluate(metadata.did, VeranaRole.ISSUER, vct).also { issuerState.value = it })
+        when (identity) {
+            VeranaIssuerIdentity.NoDid -> emit(VeranaTrustState.NoDid)
+            is VeranaIssuerIdentity.NotProven -> emit(notProven(VeranaTrustRole.ISSUER, identity.did, vct))
+            is VeranaIssuerIdentity.Unavailable -> emit(
+                evaluated(VeranaTrustRole.ISSUER, identity.did, vct, VeranaTrustStatus.UNVERIFIED, reason = null)
+            )
+            is VeranaIssuerIdentity.Signed -> {
+                emit(VeranaTrustState.Resolving(role = VeranaTrustRole.ISSUER, did = identity.did))
+                val evidence = evaluateVeranaTrust(
+                    role = VeranaTrustRole.ISSUER,
+                    did = identity.did,
+                    vct = vct,
+                    certificateKey = identity.certificateKey,
+                )
+                emit(VeranaTrustState.Evaluated(evidence))
+            }
+        }
+    }.onEach { issuerState.value = it }
+
+    override fun verifierTrust(certificates: List<X509Certificate>, vct: String?): Flow<VeranaTrustState> = flow {
+        val leaf = certificates.firstOrNull()
+        val did = leaf?.let(VeranaX509::didOf)
+        if (leaf == null || did == null) {
+            emit(VeranaTrustState.NoDid)
+            return@flow
         }
 
-    override fun verifierTrust(certificates: List<X509Certificate>, vct: String?): Flow<VeranaTrustState> =
-        flow {
-            emit(VeranaTrustState.resolving.also { verifierState.value = it })
-
-            val leaf = certificates.firstOrNull()
-            val did = leaf?.let(::sanDid)
-            if (leaf == null || did == null) {
-                emit(VeranaTrustState.unverified().also { verifierState.value = it })
-                return@flow
-            }
-
-            if (!certificateBindsDid(leaf, did)) {
-                emit(untrusted(did, credentials = null).also { verifierState.value = it })
-                return@flow
-            }
-
-            emit(evaluate(did, VeranaRole.VERIFIER, vct).also { verifierState.value = it })
+        emit(VeranaTrustState.Resolving(role = VeranaTrustRole.VERIFIER, did = did))
+        val key = VeranaX509.p256Key(leaf)
+        if (key == null) {
+            emit(notProven(VeranaTrustRole.VERIFIER, did, vct))
+            return@flow
         }
-
-    private suspend fun evaluate(did: String, role: VeranaRole, vct: String?): VeranaTrustState {
-        val resolution = repository.resolveTrust(did)
-            ?: return VeranaTrustState.unverified(did)
-
-        val accreditation = vct?.let { resolveAccreditation(did, role, it) }
-        return stateFrom(did, resolution, accreditation)
-    }
-
-    private fun stateFrom(
-        did: String,
-        resolution: VeranaTrustResolution,
-        accreditation: VeranaAccreditation?,
-    ): VeranaTrustState {
-        val credentials = resolution.ecsCredentials
-        val service = credentials.findEcs("ServiceCredential")
-        val organization = credentials.findEcs("OrganizationCredential", "PersonaCredential")
-        
-        val verdict = when (resolution.trustStatus) {
-            "TRUSTED" -> VeranaVerdict.TRUSTED
-            "UNVERIFIED" -> VeranaVerdict.UNVERIFIED
-            else -> VeranaVerdict.UNTRUSTED
-        }
-
-        return VeranaTrustState(
-            verdict = verdict,
-            sentence = sentenceFor(verdict, service != null, service, organization),
+        val evidence = evaluateVeranaTrust(
+            role = VeranaTrustRole.VERIFIER,
             did = did,
-            serviceName = service?.claimText("name"),
-            operatorName = organization?.claimText("name"),
-            serviceCredentialPresented = service != null,
-            operatorCredentialPresented = organization != null,
-            serviceSelfIssued = false, // removed in v4
-            operatorSelfIssued = false, // removed in v4
-            serviceDescription = service?.claimText("description"),
-            operatorAddress = organization?.claimText("address"),
-            operatorCountryCode = organization?.claimText("countryCode")?.uppercase(),
-            operatorRegistryId = organization?.claimText("registryId"),
-            minimumAgeRequired = service?.claimInt("minimumAgeRequired"),
-            hasTerms = service?.hasAsset("termsAndConditions") == true,
-            hasPrivacyPolicy = service?.hasAsset("privacyPolicy") == true,
-            accreditation = accreditation,
-            production = resolution.network?.production ?: true,
+            vct = vct,
+            certificateKey = key,
         )
-    }
+        emit(VeranaTrustState.Evaluated(evidence))
+    }.onEach { verifierState.value = it }
 
-    private fun untrusted(did: String, credentials: List<VeranaEcsCredential>?): VeranaTrustState {
-        val service = credentials.findEcs("ServiceCredential")
-        val organization = credentials.findEcs("OrganizationCredential", "PersonaCredential")
-        return VeranaTrustState(
-            verdict = VeranaVerdict.UNTRUSTED,
-            sentence = "The Verana public registry does not vouch for this service.",
-            did = did,
-            serviceCredentialPresented = service != null,
-            operatorCredentialPresented = organization != null,
-            serviceSelfIssued = false,
-            operatorSelfIssued = false,
-        )
-    }
+    private fun notProven(role: VeranaTrustRole, did: String, vct: String?) =
+        evaluated(role, did, vct, VeranaTrustStatus.UNTRUSTED, VeranaUntrustedReason.DID_NOT_PROVEN)
 
-    private fun sentenceFor(
-        verdict: VeranaVerdict,
-        serviceValid: Boolean,
-        service: VeranaEcsCredential?,
-        organization: VeranaEcsCredential?,
-    ): String = when (verdict) {
-        VeranaVerdict.TRUSTED -> "Both identity credentials verified against the Verana public registry"
-        VeranaVerdict.UNVERIFIED -> "The Verana resolver could not be reached. This counterparty is neither trusted nor untrusted."
-        else ->
-            if (service != null || organization != null) {
-                "The Verana public registry does not vouch for this service."
-            } else {
-                "Neither identity credential verified. This counterparty cannot present verifiable trust credentials."
-            }
-    }
-
-    private suspend fun resolveAccreditation(
+    private fun evaluated(
+        role: VeranaTrustRole,
         did: String,
-        role: VeranaRole,
-        vct: String,
-    ): VeranaAccreditation? {
-        val typeMetadata = repository.fetchDidDocument("dummy") // Not used directly, repo handles it
-        val schemaEcoDid = repository.resolveSchemaEcosystemDid(vct)
-            ?: return VeranaAccreditation(role = role, granted = false, reason = "This credential type belongs to a network this wallet does not know.")
-        
-        val ecoName = repository.resolveEcosystemName(schemaEcoDid)
-        
-        val authorized = repository.holdsActiveParticipant(did, role.name, vct)
-        val reason = if (authorized) {
-            "An active ${role.name.lowercase()} participant covers this schema."
-        } else {
-            "No active ${role.name.lowercase()} participant for this schema."
-        }
-        
-        return VeranaAccreditation(role = role, granted = authorized, reason = reason)
-    }
-
-    private suspend fun certificateBindsDid(leaf: X509Certificate, did: String): Boolean {
-        val document = repository.fetchDidDocument(didDomain(did)) ?: return false
-        val certificateKey = leaf.publicKey as? ECPublicKey ?: return false
-
-        sanDns(leaf)?.let { dns -> if (dns != didDomain(did)) return false }
-
-        return VeranaJws.p256Keys(document).any { (_, key) ->
-            key.w.affineX == certificateKey.w.affineX && key.w.affineY == certificateKey.w.affineY
-        }
-    }
-
-    private fun sanDid(certificate: X509Certificate): String? =
-        certificate.subjectAlternativeNames
-            ?.firstOrNull { it.size >= 2 && it[0] == 6 && (it[1] as? String)?.startsWith("did:") == true }
-            ?.get(1) as? String
-
-    private fun sanDns(certificate: X509Certificate): String? =
-        certificate.subjectAlternativeNames
-            ?.firstOrNull { it.size >= 2 && it[0] == 2 && it[1] is String }
-            ?.get(1) as? String
-
-    private fun List<VeranaEcsCredential>?.findEcs(vararg types: String): VeranaEcsCredential? =
-        this?.firstOrNull { it.ecsSchema in types }
-
-    private fun VeranaEcsCredential.claimText(key: String): String? =
-        (claims?.get(key) as? JsonPrimitive)?.content?.takeIf { it.isNotEmpty() }
-
-    private fun VeranaEcsCredential.claimInt(key: String): Int? =
-        (claims?.get(key) as? JsonPrimitive)?.content?.toIntOrNull()
-
-    private fun VeranaEcsCredential.hasAsset(base: String): Boolean =
-        claimText("${base}Uri") != null || claimText(base) != null
+        vct: String?,
+        status: VeranaTrustStatus,
+        reason: VeranaUntrustedReason?,
+    ) = VeranaTrustState.Evaluated(
+        VeranaTrustEvidence(
+            role = role,
+            did = did,
+            vct = vct,
+            resolution = unresolved(did, status, reason),
+            accreditation = null,
+        )
+    )
 }

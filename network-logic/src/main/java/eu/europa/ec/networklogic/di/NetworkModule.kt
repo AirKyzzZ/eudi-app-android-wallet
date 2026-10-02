@@ -18,13 +18,16 @@ package eu.europa.ec.networklogic.di
 
 import eu.europa.ec.businesslogic.config.AppBuildType
 import eu.europa.ec.businesslogic.config.ConfigLogic
-import eu.europa.ec.networklogic.repository.VeranaTrustRepository
-import eu.europa.ec.networklogic.repository.VeranaTrustRepositoryImpl
+import eu.europa.ec.businesslogic.controller.log.LogController
+import eu.europa.ec.networklogic.repository.VeranaDocumentRepository
+import eu.europa.ec.networklogic.repository.VeranaDocumentRepositoryImpl
+import eu.europa.ec.networklogic.repository.VeranaIndexerRepository
+import eu.europa.ec.networklogic.repository.VeranaIndexerRepositoryImpl
 import eu.europa.ec.networklogic.repository.WalletAttestationRepository
 import eu.europa.ec.networklogic.repository.WalletAttestationRepositoryImpl
+import eu.europa.ec.networklogic.util.VeranaHttpClient
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.android.Android
-import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.DEFAULT
 import io.ktor.client.plugins.logging.LogLevel
@@ -75,18 +78,15 @@ fun provideHttpClient(json: Json, configLogic: ConfigLogic): HttpClient {
 fun provideWalletAttestationRepository(httpClient: HttpClient): WalletAttestationRepository =
     WalletAttestationRepositoryImpl(httpClient)
 
-// Its own client: the shared one is also Wallet-Core's, and a trust check must not
-// change SDK traffic behaviour or inherit its logging of credential bodies. No
-// ContentNegotiation either - it appends application/json to the Accept header, and the
-// signed-metadata fetch must ask for application/jwt alone to be answered with the JWS.
+// No ContentNegotiation: it appends application/json to Accept, and signed issuer metadata needs application/jwt alone.
 @Single
-fun provideVeranaTrustRepository(): VeranaTrustRepository =
-    VeranaTrustRepositoryImpl(
-        httpClient = HttpClient(Android) {
-            install(HttpTimeout) {
-                requestTimeoutMillis = 10_000
-            }
-        },
-        resolverUrl = "https://resolver.testnet.verana.network",
-        apiUrl = "https://api.testnet.verana.network",
-    )
+fun provideVeranaHttpClient(logController: LogController): VeranaHttpClient =
+    VeranaHttpClient(httpClient = HttpClient(Android), logController = logController)
+
+@Single
+fun provideVeranaIndexerRepository(httpClient: VeranaHttpClient): VeranaIndexerRepository =
+    VeranaIndexerRepositoryImpl(httpClient)
+
+@Single
+fun provideVeranaDocumentRepository(httpClient: VeranaHttpClient): VeranaDocumentRepository =
+    VeranaDocumentRepositoryImpl(httpClient)

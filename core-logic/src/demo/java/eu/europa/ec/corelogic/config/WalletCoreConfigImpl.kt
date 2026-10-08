@@ -36,6 +36,7 @@ import eu.europa.ec.eudi.wallet.EudiWalletConfig
 import eu.europa.ec.eudi.wallet.dcapi.DCAPIProtocol
 import eu.europa.ec.eudi.wallet.document.CreateDocumentSettings.CredentialPolicy
 import eu.europa.ec.eudi.wallet.issue.openid4vci.OpenId4VciManager
+import eu.europa.ec.eudi.wallet.issue.openid4vci.OpenId4VciManager.IssuanceProofProfile
 import eu.europa.ec.eudi.wallet.issue.openid4vci.dpop.DPopConfig
 import eu.europa.ec.eudi.wallet.registration.issuer.IssuerRegistrationPolicy
 import eu.europa.ec.eudi.wallet.registration.relyingparty.WrpRegistrationPolicy
@@ -202,11 +203,18 @@ internal class WalletCoreConfigImpl(
                             credentialResponseEncryptionPolicy = CredentialResponseEncryptionPolicy.SUPPORTED,
                         )
                     )
-                    .withSupportedProofTypes(
-                        OpenId4VciManager.SupportedProofTypes(
-                            isNoProofSupported = false,
-                            jwtProofAlgorithms = setOf(Algorithm.ESP256),
-                            attestationProofAlgorithms = null,
+                    .withIssuanceProofProfile(
+                        IssuanceProofProfile.Custom(
+                            listOf(
+                                IssuanceProofProfile.ProofTypeConfig(
+                                    IssuanceProofProfile.ProofType.JWT_WITH_KEY_ATTESTATION,
+                                    setOf(Algorithm.ESP256),
+                                ),
+                                IssuanceProofProfile.ProofTypeConfig(
+                                    IssuanceProofProfile.ProofType.JWT_WITHOUT_KEY_ATTESTATION,
+                                    setOf(Algorithm.ESP256),
+                                ),
+                            )
                         )
                     )
                     .build(),

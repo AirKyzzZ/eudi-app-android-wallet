@@ -628,7 +628,7 @@ class WalletCorePresentationControllerImpl(
 
             val veranaCertificates = runCatching {
                 val factory = java.security.cert.CertificateFactory.getInstance("X.509")
-                success.requester.certChain?.certificates?.map { cert ->
+                success.requester.requesterIdentities.firstOrNull()?.certChain?.certificates?.map { cert ->
                     factory.generateCertificate(
                         cert.encoded.toByteArray().inputStream()
                     ) as X509Certificate

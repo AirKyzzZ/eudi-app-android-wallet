@@ -26,8 +26,8 @@ import eu.europa.ec.eudi.etsi1196x2.consultation.AttestationClassifications
 import eu.europa.ec.eudi.etsi1196x2.consultation.AttestationIdentifier
 import eu.europa.ec.eudi.etsi1196x2.consultation.AttestationIdentifierPredicate
 import eu.europa.ec.eudi.etsi1196x2.consultation.SupportedLists
+import eu.europa.ec.eudi.etsi1196x2.consultation.VerificationContext
 import eu.europa.ec.eudi.iso18013.transfer.readerauth.ReaderTrustStore
-import eu.europa.ec.eudi.iso18013.transfer.response.ReaderAuthPolicy
 import eu.europa.ec.eudi.openid4vci.CredentialReusePolicies
 import eu.europa.ec.eudi.openid4vci.CredentialResponseEncryptionPolicy
 import eu.europa.ec.eudi.openid4vci.EncryptionSupportConfig
@@ -41,6 +41,7 @@ import eu.europa.ec.eudi.wallet.registration.issuer.IssuerRegistrationPolicy
 import eu.europa.ec.eudi.wallet.registration.relyingparty.WrpRegistrationPolicy
 import eu.europa.ec.eudi.wallet.transfer.openId4vp.ClientIdScheme
 import eu.europa.ec.eudi.wallet.transfer.openId4vp.Format
+import eu.europa.ec.eudi.wallet.transfer.openId4vp.TransactionDataType
 import eu.europa.ec.eudi.wallet.trust.TrustPolicy
 import kotlinx.coroutines.runBlocking
 import kotlin.time.Duration.Companion.hours
@@ -84,6 +85,10 @@ internal class WalletCoreConfigImpl(
                         withFormats(
                             Format.MsoMdoc.ES256, Format.SdJwtVc.ES256
                         )
+                        withTransactionDataTypes(
+                            TransactionDataType.QES_APPROVAL,
+                            TransactionDataType.QES
+                        )
                     }
 
                     configureDCAPI {
@@ -123,12 +128,15 @@ internal class WalletCoreConfigImpl(
                         relaxPkixRevocation()
                     }
 
-                    // The Verana trust layer is the enforcement in this fork: issuers are gated on
-                    // registry resolution at the offer screen, not on the EU trusted lists. Signed
+                    // The Verana trust layer is the enforcement in this fork: non-PID issuers are gated
+                    // on registry resolution at the offer screen, not on the EU trusted lists. Signed
                     // metadata stays preferred rather than ignored, because asking for it is what
                     // makes openid4vci-kt announce itself to the agent.
                     configureIssuerTrust {
-                        policy { default(TrustPolicy.Action.INFORM) }
+                        policy {
+                            default(TrustPolicy.Action.INFORM)
+                            forContext(VerificationContext.PID, TrustPolicy.Action.ENFORCE)
+                        }
                         preferSignedMetadata()
                         configureIssuerRegistrationPolicy(
                             if (isRegistrationCheckEnabled) {
@@ -147,20 +155,20 @@ internal class WalletCoreConfigImpl(
                         }
                     }
 
-                    configureReaderTrustStore {
-                        readerAuthPolicy(ReaderAuthPolicy.DoNotEnforce)
-                    }
-
                     // the demo cast signs under self-signed certs; the Verana gate blocks the action instead
-                    configureReaderTrustStore(object : ReaderTrustStore {
-                        override fun createCertificationTrustPath(
-                            chain: List<java.security.cert.X509Certificate>
-                        ): List<java.security.cert.X509Certificate> = chain
+                    configureReaderAuthentication {
+                        trustSource(object : ReaderTrustStore {
+                            override fun createCertificationTrustPath(
+                                chain: List<java.security.cert.X509Certificate>
+                            ): List<java.security.cert.X509Certificate> = chain
 
-                        override fun validateCertificationTrustPath(
-                            chain: List<java.security.cert.X509Certificate>
-                        ): Boolean = true
-                    })
+                            override fun validateCertificationTrustPath(
+                                chain: List<java.security.cert.X509Certificate>
+                            ): Boolean = true
+                        })
+                        // not doNotEnforce(): it drops the trust source and OpenID4VP then refuses every x5c
+                        enforceIfPresent()
+                    }
 
                     configureWrpRegistrationPolicy(
                         if (isRegistrationCheckEnabled) {
